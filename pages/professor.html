@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURA — Dashboard Professor</title>
+<link rel="stylesheet" href="../assets/professor.css">
+</head>
+<body>
+
+<div class="bg-grid"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-icon">A</div>
+    <span class="brand-name">AURA</span>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Principal</div>
+    <a class="nav-item active" href="#">
+      <span class="nav-icon">⊞</span> Dashboard
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">◫</span> Minhas turmas
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">⬡</span> Chamadas
+    </a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Relatórios</div>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">◎</span> Frequência
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">△</span> Alertas
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">≡</span> Exportar dados
+    </a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Sistema</div>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">◈</span> Configurações
+    </a>
+    <a class="nav-item" href="../index.html">
+      <span class="nav-icon">🚪</span> Sair
+    </a>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="user-info">
+      <div class="avatar">PF</div>
+      <div>
+        <div class="user-name">Prof. Fernando</div>
+        <div class="user-role">professor</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- Conteúdo -->
+<main class="main">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Dashboard</h1>
+      <p class="page-sub">Semestre 2025.1 · 4 matérias ativas</p>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-outline">+ Nova turma</button>
+      <a href="qrcode.html" style="text-decoration:none;"><button class="btn btn-primary">▶ Iniciar chamada</button></a>
+    </div>
+  </div>
+
+  <!-- Estatísticas -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-header">
+        <span class="stat-label">Total alunos</span>
+        <div class="stat-icon blue">👥</div>
+      </div>
+      <div class="stat-value blue">124</div>
+      <div class="stat-trend">em 4 turmas ativas</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-header">
+        <span class="stat-label">Freq. média</span>
+        <div class="stat-icon green">◎</div>
+      </div>
+      <div class="stat-value green">81%</div>
+      <div class="stat-trend">acima do mínimo</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-header">
+        <span class="stat-label">Em alerta</span>
+        <div class="stat-icon yellow">△</div>
+      </div>
+      <div class="stat-value yellow">9</div>
+      <div class="stat-trend">entre 60–75% de freq.</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-header">
+        <span class="stat-label">Risco reprovação</span>
+        <div class="stat-icon red">⚠</div>
+      </div>
+      <div class="stat-value red">3</div>
+      <div class="stat-trend">abaixo do mínimo</div>
+    </div>
+  </div>
+
+  <!-- Grid principal -->
+  <div class="content-grid">
+
+    <!-- Tabela de turmas -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Minhas turmas</div>
+          <div class="card-sub">frequência mínima por matéria</div>
+        </div>
+        <button class="btn btn-outline" style="font-size:12px;padding:7px 14px">Ver todas</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Matéria</th>
+            <th>Alunos</th>
+            <th>Freq. mínima</th>
+            <th>Média atual</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="subject-name">Engenharia de Software</div>
+              <div class="subject-code">ESW-401 · Turma A</div>
+            </td>
+            <td>38</td>
+            <td>75%</td>
+            <td>
+              <div class="progress-wrap">
+                <div class="progress-bar"><div class="progress-fill" style="width:88%"></div></div>
+                <span class="progress-pct">88%</span>
+              </div>
+            </td>
+            <td><span class="badge badge-green">Normal</span></td>
+            <td><button class="action-btn start">▶ Chamada</button></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="subject-name">Banco de Dados II</div>
+              <div class="subject-code">BDI-302 · Turma B</div>
+            </td>
+            <td>34</td>
+            <td>75%</td>
+            <td>
+              <div class="progress-wrap">
+                <div class="progress-bar"><div class="progress-fill yellow" style="width:71%"></div></div>
+                <span class="progress-pct">71%</span>
+              </div>
+            </td>
+            <td><span class="badge badge-yellow">Alerta</span></td>
+            <td><button class="action-btn start">▶ Chamada</button></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="subject-name">Redes de Computadores</div>
+              <div class="subject-code">REC-201 · Turma A</div>
+            </td>
+            <td>29</td>
+            <td>80%</td>
+            <td>
+              <div class="progress-wrap">
+                <div class="progress-bar"><div class="progress-fill" style="width:84%"></div></div>
+                <span class="progress-pct">84%</span>
+              </div>
+            </td>
+            <td><span class="badge badge-green">Normal</span></td>
+            <td><button class="action-btn start">▶ Chamada</button></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="subject-name">Sistemas Operacionais</div>
+              <div class="subject-code">SOP-303 · Turma C</div>
+            </td>
+            <td>23</td>
+            <td>70%</td>
+            <td>
+              <div class="progress-wrap">
+                <div class="progress-bar"><div class="progress-fill red" style="width:58%"></div></div>
+                <span class="progress-pct">58%</span>
+              </div>
+            </td>
+            <td><span class="badge badge-red">Risco</span></td>
+            <td><button class="action-btn start">▶ Chamada</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Coluna direita -->
+    <div class="side-stack">
+
+      <!-- Alertas -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Alertas recentes</div>
+            <div class="card-sub">alunos em risco</div>
+          </div>
+          <span class="badge badge-red">3 críticos</span>
+        </div>
+        <div class="alert-list">
+          <div class="alert-item">
+            <div class="alert-dot red"></div>
+            <div>
+              <div class="alert-name">Lucas Mendonça</div>
+              <div class="alert-info">SOP-303 · 52% frequência</div>
+            </div>
+          </div>
+          <div class="alert-item">
+            <div class="alert-dot red"></div>
+            <div>
+              <div class="alert-name">Carla Souza</div>
+              <div class="alert-info">SOP-303 · 55% frequência</div>
+            </div>
+          </div>
+          <div class="alert-item">
+            <div class="alert-dot yellow"></div>
+            <div>
+              <div class="alert-name">Pedro Alves</div>
+              <div class="alert-info">BDI-302 · 63% frequência</div>
+            </div>
+          </div>
+          <div class="alert-item">
+            <div class="alert-dot yellow"></div>
+            <div>
+              <div class="alert-name">Marina Costa</div>
+              <div class="alert-info">BDI-302 · 68% frequência</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Próximas aulas -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Próximas aulas</div>
+            <div class="card-sub">esta semana</div>
+          </div>
+        </div>
+        <div class="schedule-list">
+          <div class="schedule-item">
+            <div class="schedule-date">
+              <span class="schedule-day">19</span>
+              <span class="schedule-month">abr</span>
+            </div>
+            <div>
+              <div class="schedule-name">Engenharia de Software</div>
+              <div class="schedule-time">08:00 – 09:40 · Sala 204</div>
+            </div>
+          </div>
+          <div class="schedule-item">
+            <div class="schedule-date">
+              <span class="schedule-day">21</span>
+              <span class="schedule-month">abr</span>
+            </div>
+            <div>
+              <div class="schedule-name">Banco de Dados II</div>
+              <div class="schedule-time">10:00 – 11:40 · Sala 112</div>
+            </div>
+          </div>
+          <div class="schedule-item">
+            <div class="schedule-date">
+              <span class="schedule-day">23</span>
+              <span class="schedule-month">abr</span>
+            </div>
+            <div>
+              <div class="schedule-name">Redes de Computadores</div>
+              <div class="schedule-time">14:00 – 15:40 · Lab 03</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+</body>
+</html>

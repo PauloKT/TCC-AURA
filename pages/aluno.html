@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURA — Dashboard Aluno</title>
+<link rel="stylesheet" href="../assets/aluno.css">
+</head>
+<body>
+
+<div class="bg-grid"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-icon">A</div>
+    <span class="brand-name">AURA</span>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Principal</div>
+    <a class="nav-item active" href="#">⊞ Minhas matérias</a>
+    <a class="nav-item" href="#">⬡ Registrar presença</a>
+    <a class="nav-item" href="#">◎ Minha frequência</a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Conta</div>
+    <a class="nav-item" href="#">◈ Configurações</a>
+    <a class="nav-item" href="../index.html">🚪 Sair</a>
+  </div>
+  <div class="sidebar-footer">
+    <div class="user-info">
+      <div class="avatar">JS</div>
+      <div>
+        <div class="user-name">Julia Souza</div>
+        <div class="user-role">aluna</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- Conteúdo -->
+<main class="main">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Olá, Julia 👋</h1>
+      <p class="page-sub">Semestre 2025.1 · 4 matérias matriculadas</p>
+    </div>
+  </div>
+
+  <!-- Alerta de chamada ativa -->
+  <div class="call-alert">
+    <div class="call-alert-left">
+      <div class="pulse-dot"></div>
+      <div>
+        <div class="call-alert-text">Chamada aberta — Engenharia de Software</div>
+        <div class="call-alert-sub">Prof. Fernando · Sala 204 · expira em 4 min</div>
+      </div>
+    </div>
+    <button class="btn-scan">⬡ Registrar presença</button>
+  </div>
+
+  <div class="main-grid">
+
+    <!-- Lista de matérias -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Minhas matérias</div>
+          <div class="card-sub">frequência e status por disciplina</div>
+        </div>
+      </div>
+
+      <div class="subject-header">
+        <div class="th-label" style="text-align:left">Matéria</div>
+        <div class="th-label">Aulas</div>
+        <div class="th-label">Frequência</div>
+        <div class="th-label">Mínimo</div>
+        <div class="th-label">Status</div>
+      </div>
+
+      <div class="subject-list">
+
+        <div class="subject-row">
+          <div>
+            <div class="subject-name">Engenharia de Software</div>
+            <div class="subject-code">ESW-401 · Prof. Fernando</div>
+          </div>
+          <div class="aulas-info">
+            <div class="aulas-num">22/26</div>
+            <div class="aulas-sub">presentes</div>
+          </div>
+          <div class="ring-wrap">
+            <div class="ring">
+              <svg viewBox="0 0 44 44" width="44" height="44">
+                <circle class="ring-bg" cx="22" cy="22" r="18"/>
+                <circle class="ring-fill green" cx="22" cy="22" r="18"
+                  stroke-dasharray="113.1"
+                  stroke-dashoffset="19.2"/>
+              </svg>
+              <div class="ring-text green">85%</div>
+            </div>
+          </div>
+          <div style="text-align:center;font-size:12px;color:var(--text-muted);font-family:'DM Mono',monospace">75%</div>
+          <div><span class="badge badge-green">Normal</span></div>
+        </div>
+
+        <div class="subject-row">
+          <div>
+            <div class="subject-name">Banco de Dados II</div>
+            <div class="subject-code">BDI-302 · Prof. Carvalho</div>
+          </div>
+          <div class="aulas-info">
+            <div class="aulas-num">17/24</div>
+            <div class="aulas-sub">presentes</div>
+          </div>
+          <div class="ring-wrap">
+            <div class="ring">
+              <svg viewBox="0 0 44 44" width="44" height="44">
+                <circle class="ring-bg" cx="22" cy="22" r="18"/>
+                <circle class="ring-fill yellow" cx="22" cy="22" r="18"
+                  stroke-dasharray="113.1"
+                  stroke-dashoffset="43.7"/>
+              </svg>
+              <div class="ring-text yellow">71%</div>
+            </div>
+          </div>
+          <div style="text-align:center;font-size:12px;color:var(--text-muted);font-family:'DM Mono',monospace">75%</div>
+          <div><span class="badge badge-yellow">Alerta</span></div>
+        </div>
+
+        <div class="subject-row">
+          <div>
+            <div class="subject-name">Redes de Computadores</div>
+            <div class="subject-code">REC-201 · Prof. Almeida</div>
+          </div>
+          <div class="aulas-info">
+            <div class="aulas-num">20/22</div>
+            <div class="aulas-sub">presentes</div>
+          </div>
+          <div class="ring-wrap">
+            <div class="ring">
+              <svg viewBox="0 0 44 44" width="44" height="44">
+                <circle class="ring-bg" cx="22" cy="22" r="18"/>
+                <circle class="ring-fill green" cx="22" cy="22" r="18"
+                  stroke-dasharray="113.1"
+                  stroke-dashoffset="10.2"/>
+              </svg>
+              <div class="ring-text green">91%</div>
+            </div>
+          </div>
+          <div style="text-align:center;font-size:12px;color:var(--text-muted);font-family:'DM Mono',monospace">80%</div>
+          <div><span class="badge badge-green">Normal</span></div>
+        </div>
+
+        <div class="subject-row">
+          <div>
+            <div class="subject-name">Sistemas Operacionais</div>
+            <div class="subject-code">SOP-303 · Prof. Lima</div>
+          </div>
+          <div class="aulas-info">
+            <div class="aulas-num">12/22</div>
+            <div class="aulas-sub">presentes</div>
+          </div>
+          <div class="ring-wrap">
+            <div class="ring">
+              <svg viewBox="0 0 44 44" width="44" height="44">
+                <circle class="ring-bg" cx="22" cy="22" r="18"/>
+                <circle class="ring-fill red" cx="22" cy="22" r="18"
+                  stroke-dasharray="113.1"
+                  stroke-dashoffset="68.4"/>
+              </svg>
+              <div class="ring-text red">55%</div>
+            </div>
+          </div>
+          <div style="text-align:center;font-size:12px;color:var(--text-muted);font-family:'DM Mono',monospace">70%</div>
+          <div><span class="badge badge-red">Risco</span></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Coluna direita -->
+    <div class="side-stack">
+
+      <!-- Perfil resumo -->
+      <div class="profile-card">
+        <div class="profile-top">
+          <div class="profile-avatar">JS</div>
+          <div>
+            <div class="profile-name">Julia Souza</div>
+            <div class="profile-ra">RA: 2022.1.0042</div>
+            <div class="profile-course">Eng. de Software · 6º período</div>
+          </div>
+        </div>
+        <div class="stats-mini">
+          <div class="stat-mini">
+            <div class="stat-mini-val green">76%</div>
+            <div class="stat-mini-label">Freq. geral</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-val yellow">1</div>
+            <div class="stat-mini-label">Em risco</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-val green">71</div>
+            <div class="stat-mini-label">Presenças</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-val yellow">23</div>
+            <div class="stat-mini-label">Faltas</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Histórico recente -->
+      <div class="history-card">
+        <div class="card-header" style="padding:16px 20px">
+          <div>
+            <div class="card-title">Histórico recente</div>
+            <div class="card-sub">últimas 6 aulas</div>
+          </div>
+        </div>
+        <div>
+          <div class="history-item">
+            <div class="hist-dot green"></div>
+            <div>
+              <div class="hist-subject">Engenharia de Software</div>
+              <div class="hist-date">19 abr · 08:03</div>
+            </div>
+            <div class="hist-status green">presente</div>
+          </div>
+          <div class="history-item">
+            <div class="hist-dot green"></div>
+            <div>
+              <div class="hist-subject">Redes de Computadores</div>
+              <div class="hist-date">17 abr · 14:05</div>
+            </div>
+            <div class="hist-status green">presente</div>
+          </div>
+          <div class="history-item">
+            <div class="hist-dot red"></div>
+            <div>
+              <div class="hist-subject">Sistemas Operacionais</div>
+              <div class="hist-date">16 abr · 10:00</div>
+            </div>
+            <div class="hist-status red">ausente</div>
+          </div>
+          <div class="history-item">
+            <div class="hist-dot green"></div>
+            <div>
+              <div class="hist-subject">Banco de Dados II</div>
+              <div class="hist-date">15 abr · 10:02</div>
+            </div>
+            <div class="hist-status green">presente</div>
+          </div>
+          <div class="history-item">
+            <div class="hist-dot red"></div>
+            <div>
+              <div class="hist-subject">Sistemas Operacionais</div>
+              <div class="hist-date">14 abr · 10:00</div>
+            </div>
+            <div class="hist-status red">ausente</div>
+          </div>
+          <div class="history-item">
+            <div class="hist-dot green"></div>
+            <div>
+              <div class="hist-subject">Engenharia de Software</div>
+              <div class="hist-date">12 abr · 08:04</div>
+            </div>
+            <div class="hist-status green">presente</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+</body>
+</html>

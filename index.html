@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURA — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #111118;
+    --bg3: #1a1a24;
+    --border: rgba(255,255,255,0.07);
+    --border-hover: rgba(255,255,255,0.15);
+    --accent: #6ee7b7;
+    --accent2: #3b82f6;
+    --accent-glow: rgba(110,231,183,0.15);
+    --text: #f0f0f0;
+    --text-muted: #6b7280;
+    --text-dim: #374151;
+    --danger: #f87171;
+    --input-bg: rgba(255,255,255,0.04);
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* Grid de fundo animado */
+  .bg-grid {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(110,231,183,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(110,231,183,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .bg-glow {
+    position: fixed;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(110,231,183,0.06) 0%, transparent 70%);
+    top: -200px;
+    right: -100px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .bg-glow2 {
+    position: fixed;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(59,130,246,0.05) 0%, transparent 70%);
+    bottom: -100px;
+    left: 200px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Layout principal */
+  .layout {
+    display: flex;
+    width: 100%;
+    min-height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Painel esquerdo */
+  .left-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 48px 56px;
+    border-right: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .left-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(110,231,183,0.03) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    color: #0a0a0f;
+    letter-spacing: -0.5px;
+  }
+
+  .brand-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: 2px;
+    color: var(--text);
+  }
+
+  .hero-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px 0;
+  }
+
+  .hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 1px solid rgba(110,231,183,0.25);
+    background: rgba(110,231,183,0.06);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+    width: fit-content;
+  }
+
+  .hero-tag::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .hero-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 52px;
+    line-height: 1.05;
+    letter-spacing: -2px;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+
+  .hero-title span {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-desc {
+    font-size: 15px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    max-width: 380px;
+    margin-bottom: 48px;
+    font-weight: 300;
+  }
+
+  /* Camadas de segurança */
+  .security-layers {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .layer {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    transition: border-color 0.2s, background 0.2s;
+    animation: slideIn 0.5s ease both;
+  }
+
+  .layer:nth-child(1) { animation-delay: 0.1s; }
+  .layer:nth-child(2) { animation-delay: 0.2s; }
+  .layer:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-16px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .layer:hover {
+    border-color: var(--border-hover);
+    background: rgba(255,255,255,0.06);
+  }
+
+  .layer-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .layer-icon.green { background: rgba(110,231,183,0.12); }
+  .layer-icon.blue  { background: rgba(59,130,246,0.12); }
+  .layer-icon.purple{ background: rgba(167,139,250,0.12); }
+
+  .layer-info { flex: 1; }
+
+  .layer-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .layer-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .layer-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 100px;
+    background: rgba(110,231,183,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(110,231,183,0.2);
+  }
+
+  .footer-text {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.5px;
+  }
+
+  /* Painel direito */
+  .right-panel {
+    width: 480px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 56px;
+  }
+
+  .form-card {
+    width: 100%;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--bg3);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 36px;
+    border: 1px solid var(--border);
+  }
+
+  .tab {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tab.active {
+    background: var(--bg2);
+    color: var(--text);
+    border: 1px solid var(--border-hover);
+  }
+
+  /* Seletor de perfil */
+  .profile-select {
+    margin-bottom: 24px;
+  }
+
+  .profile-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .profile-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .profile-opt {
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .profile-opt:hover {
+    border-color: var(--border-hover);
+  }
+
+  .profile-opt.selected {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  .profile-opt-icon { font-size: 20px; }
+
+  .profile-opt-text { font-size: 13px; font-weight: 500; color: var(--text); }
+  .profile-opt-sub  { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+  /* Formulário */
+  .field {
+    margin-bottom: 16px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .field input {
+    width: 100%;
+    padding: 13px 16px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .field input::placeholder { color: var(--text-dim); }
+
+  .field input:focus {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  .forgot {
+    text-align: right;
+    margin-top: -8px;
+    margin-bottom: 16px;
+  }
+
+  .forgot a {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .forgot a:hover { color: var(--accent); }
+
+  /* Botão principal */
+  .btn-primary {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(135deg, var(--accent), #34d399);
+    color: #0a0a0f;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+
+  .btn-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0);
+    transition: background 0.2s;
+  }
+
+  .btn-primary:hover::after { background: rgba(255,255,255,0.1); }
+  .btn-primary:active { transform: scale(0.99); }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .divider span {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Webauthn info */
+  .webauthn-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(110,231,183,0.15);
+    background: rgba(110,231,183,0.04);
+    margin-top: 20px;
+  }
+
+  .webauthn-info .icon { font-size: 18px; }
+
+  .webauthn-info p {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .webauthn-info strong {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* Painel cadastro (oculto por padrão) */
+  .form-register { display: none; }
+  .form-login    { display: block; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .left-panel { display: none; }
+    .right-panel { width: 100%; padding: 32px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+<div class="bg-glow2"></div>
+
+<div class="layout">
+
+  <!-- Painel esquerdo -->
+  <div class="left-panel">
+    <div class="brand">
+      <div class="brand-icon">A</div>
+      <span class="brand-name">AURA</span>
+    </div>
+
+    <div class="hero-section">
+      <div class="hero-tag">Sistema acadêmico</div>
+      <h1 class="hero-title">Chamada<span> Inteligente</span></h1>
+      <p class="hero-desc">
+        Automatize o controle de presença com três camadas de segurança: QR Code dinâmico, geolocalização e biometria WebAuthn.
+      </p>
+
+      <div class="security-layers">
+        <div class="layer">
+          <div class="layer-icon green">⬡</div>
+          <div class="layer-info">
+            <div class="layer-title">QR Code dinâmico</div>
+            <div class="layer-sub">token único por aula</div>
+          </div>
+          <span class="layer-badge">60s</span>
+        </div>
+        <div class="layer">
+          <div class="layer-icon blue">◎</div>
+          <div class="layer-info">
+            <div class="layer-title">Geolocalização GPS</div>
+            <div class="layer-sub">valida presença física</div>
+          </div>
+          <span class="layer-badge">50m</span>
+        </div>
+        <div class="layer">
+          <div class="layer-icon purple">◈</div>
+          <div class="layer-info">
+            <div class="layer-title">WebAuthn biométrico</div>
+            <div class="layer-sub">Face ID · digital</div>
+          </div>
+          <span class="layer-badge">LGPD</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="footer-text">© 2025 AURA · TCC · Engenharia de Software</p>
+  </div>
+
+  <!-- Painel direito -->
+  <div class="right-panel">
+    <div class="form-card">
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('login', this)">Entrar</button>
+        <button class="tab" onclick="switchTab('register', this)">Criar conta</button>
+      </div>
+
+      <!-- Formulário Login -->
+      <div class="form-login" id="form-login">
+        <div class="profile-select">
+          <div class="profile-label">Acessar como</div>
+          <div class="profile-options">
+            <div class="profile-opt selected" onclick="selectProfile(this)">
+              <span class="profile-opt-icon">👨‍🏫</span>
+              <div>
+                <div class="profile-opt-text">Professor</div>
+                <div class="profile-opt-sub">Gerenciar turmas</div>
+              </div>
+            </div>
+            <div class="profile-opt" onclick="selectProfile(this)">
+              <span class="profile-opt-icon">👨‍🎓</span>
+              <div>
+                <div class="profile-opt-text">Aluno</div>
+                <div class="profile-opt-sub">Registrar presença</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>E-mail institucional</label>
+          <input type="email" placeholder="seu@email.edu.br">
+        </div>
+
+        <div class="field">
+          <label>Senha</label>
+          <input type="password" placeholder="••••••••">
+        </div>
+
+        <div class="forgot"><a href="#">Esqueci minha senha</a></div>
+
+        <button class="btn-primary" id="btn-login">Entrar no AURA</button>
+
+        <div class="webauthn-info">
+          <span class="icon">🔐</span>
+          <p>Na confirmação de presença, usamos <strong>WebAuthn</strong> — sua biometria nunca sai do dispositivo.</p>
+        </div>
+      </div>
+
+      <!-- Formulário Cadastro -->
+      <div class="form-register" id="form-register">
+        <div class="profile-select">
+          <div class="profile-label">Cadastrar como</div>
+          <div class="profile-options">
+            <div class="profile-opt selected" onclick="selectProfile(this)">
+              <span class="profile-opt-icon">👨‍🏫</span>
+              <div>
+                <div class="profile-opt-text">Professor</div>
+                <div class="profile-opt-sub">Criar turmas</div>
+              </div>
+            </div>
+            <div class="profile-opt" onclick="selectProfile(this)">
+              <span class="profile-opt-icon">👨‍🎓</span>
+              <div>
+                <div class="profile-opt-text">Aluno</div>
+                <div class="profile-opt-sub">Entrar em turmas</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Nome completo</label>
+          <input type="text" placeholder="Seu nome">
+        </div>
+
+        <div class="field">
+          <label>E-mail institucional</label>
+          <input type="email" placeholder="seu@email.edu.br">
+        </div>
+
+        <div class="field">
+          <label>Senha</label>
+          <input type="password" placeholder="Mínimo 8 caracteres">
+        </div>
+
+        <div class="field">
+          <label>Confirmar senha</label>
+          <input type="password" placeholder="Repita a senha">
+        </div>
+
+        <button class="btn-primary" id="btn-register">Criar minha conta</button>
+
+        <div class="webauthn-info">
+          <span class="icon">🔐</span>
+          <p>Após o cadastro, vamos registrar sua <strong>biometria WebAuthn</strong> para confirmação de presença.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let selectedProfile = 'professor';
+
+  function switchTab(tab, btn) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('form-login').style.display    = tab === 'login'    ? 'block' : 'none';
+    document.getElementById('form-register').style.display = tab === 'register' ? 'block' : 'none';
+  }
+
+  function selectProfile(el) {
+    el.closest('.profile-options').querySelectorAll('.profile-opt').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedProfile = el.querySelector('.profile-opt-text').textContent.toLowerCase() === 'professor' ? 'professor' : 'aluno';
+    sessionStorage.setItem('userProfile', selectedProfile);
+  }
+
+  function handleLogin() {
+    const profile = selectedProfile === 'professor' ? 'professor' : 'aluno';
+    window.location.href = `pages/${profile}.html`;
+  }
+
+  function handleRegister() {
+    const profile = selectedProfile === 'professor' ? 'professor' : 'aluno';
+    window.location.href = `pages/${profile}.html`;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('btn-login').addEventListener('click', handleLogin);
+    document.getElementById('btn-register').addEventListener('click', handleRegister);
+    const stored = sessionStorage.getItem('userProfile');
+    if (stored) selectedProfile = stored;
+  });
+</script>
+
+</body>
+</html>
