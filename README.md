@@ -108,6 +108,36 @@ Acesse o sistema em `http://127.0.0.1:8000`
 
 ---
 
+## Dependências (para rodar localmente)
+
+> Se você ainda não tiver um `requirements.txt` completo, use a instalação rápida abaixo para instalar tudo de uma vez.
+
+### Instalação rápida (tudo de uma vez)
+
+```bash
+python -m pip install django djangorestframework "qrcode[pil]" pillow py-webauthn python-dotenv psycopg2-binary djangorestframework-simplejwt django-cors-headers
+```
+
+### O que cada pacote faz no projeto
+
+- **django** — framework principal (models, templates, admin, autenticação, etc.)
+- **djangorestframework** — API REST para o frontend consumir
+- **qrcode[pil]** — geração do QR Code; o extra **[pil]** inclui suporte de renderização via Pillow
+- **pillow** — manipulação/renderização de imagens (necessário junto do QR code)
+- **py-webauthn** — fluxo WebAuthn (chaves públicas) para autenticação biométrica no dispositivo
+- **python-dotenv** — carrega variáveis do `.env` (segredos fora do código)
+- **psycopg2-binary** — driver do PostgreSQL (caso migre do SQLite no futuro)
+- **djangorestframework-simplejwt** — autenticação por tokens JWT na API
+- **django-cors-headers** — habilita CORS para o frontend acessar a API
+
+### Salvar as dependências no `requirements.txt`
+
+```bash
+python -m pip freeze > requirements.txt
+```
+
+---
+
 ## Fluxo de registro de presença
 
 ```

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Aluno — AURA{% endblock %}
+
+{% block content %}
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h1 class="h5 mb-3">Minhas matrículas</h1>
+      {% if enrollments %}
+        <ul class="list-group">
+          {% for e in enrollments %}
+            <li class="list-group-item">
+              <div class="fw-semibold">{{ e.class_group.subject.code }} / {{ e.class_group.name }}</div>
+              <div class="text-muted small">{{ e.class_group.subject.name }}</div>
+              <div class="text-muted small">Professor: {{ e.class_group.professor.get_full_name|default:e.class_group.professor.username }}</div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="text-muted">Você ainda não está matriculado em nenhuma turma. Faça a matrícula pelo Admin por enquanto.</div>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
+
