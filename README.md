@@ -1,88 +1,88 @@
 # AURA — Automated University Roll-call and Attendance
 
-> Web system for academic attendance control using dynamic QR Code, GPS geolocation and WebAuthn biometric authentication. Built with Django and Django REST Framework.
+> Sistema web para controle de presença acadêmica utilizando QR Code dinâmico, geolocalização GPS e autenticação biométrica via WebAuthn. Desenvolvido com Django e Django REST Framework.
 
 ---
 
-## About the Project
+## Sobre o projeto
 
-AURA is an academic web system developed as a final undergraduate project (TCC) to automate classroom attendance control in higher education institutions. The system combines three security layers to prevent fraud and ensure that only physically present students can register their attendance.
+O AURA é um sistema web acadêmico desenvolvido como Trabalho de Conclusão de Curso (TCC) para automatizar o controle de presença em instituições de ensino superior. O sistema combina três camadas de segurança para prevenir fraudes e garantir que somente alunos fisicamente presentes possam registrar presença.
 
-**Security layers:**
-- **Dynamic QR Code** — unique token generated per class, expires in 60 seconds
-- **GPS Geolocation** — validates that the student is within a 50-meter radius of the classroom
-- **WebAuthn** — biometric authentication (Face ID / fingerprint) performed locally on the device, no biometric data is sent to or stored on the server
+**Camadas de segurança:**
+- **QR Code dinâmico** — token único gerado por aula, expira em 60 segundos
+- **Geolocalização GPS** — valida que o aluno está dentro de um raio de 50 metros da sala
+- **WebAuthn** — autenticação biométrica (Face ID / impressão digital) realizada localmente no dispositivo, nenhum dado biométrico é enviado ou armazenado no servidor
 
 ---
 
-## Features
+## Funcionalidades
 
 ### Professor
-- Register and manage subjects and classes
-- Define minimum attendance percentage per subject
-- Start and end class sessions
-- Display dynamic QR Code for students to scan
-- View real-time attendance list
-- Monitor student attendance risk alerts
-- Access frequency reports
+- Cadastrar e gerenciar matérias e turmas
+- Definir percentual mínimo de presença por matéria
+- Iniciar e encerrar chamadas
+- Exibir QR Code dinâmico para os alunos escanear
+- Visualizar lista de presença em tempo real
+- Acompanhar alertas de risco de reprovação por falta
+- Acessar relatórios de frequência
 
-### Student
-- Self-registration on the platform
-- Join classes via professor-generated invite link
-- Register attendance by scanning the QR Code
-- Track personal attendance and status per subject
+### Aluno
+- Realizar cadastro no sistema
+- Entrar em turmas via link gerado pelo professor
+- Registrar presença escaneando o QR Code
+- Acompanhar frequência e status por matéria
 
 ---
 
-## Tech Stack
+## Tecnologias
 
-| Layer | Technology |
+| Camada | Tecnologia |
 |---|---|
-| Language | Python 3.11+ |
+| Linguagem | Python 3.11+ |
 | Framework | Django + Django REST Framework |
-| Database | SQLite (development) |
+| Banco de dados | SQLite (desenvolvimento) |
 | Frontend | HTML, CSS, JavaScript, Bootstrap 5 |
-| QR Code generation | `qrcode` (Python library) |
-| Geolocation | Geolocation API (browser-native) |
-| Biometric auth | WebAuthn via `py_webauthn` |
-| Version control | Git + GitHub |
+| Geração de QR Code | biblioteca `qrcode` (Python) |
+| Geolocalização | Geolocation API (nativa do navegador) |
+| Autenticação biométrica | WebAuthn via `pywebauthn` |
+| Versionamento | Git + GitHub |
 
 ---
 
-## Project Structure
+## Estrutura do projeto
 
 ```
 aura/
-├── core/               # Django project settings
+├── core/               # Configurações do projeto Django
 │   ├── settings.py
 │   ├── urls.py
 │   └── wsgi.py
-├── users/              # User management (professor & student profiles)
-├── subjects/           # Subjects and classes
-├── attendance/         # Sessions and attendance records
-├── qrcodes/            # QR Code generation and token validation
-├── reports/            # Frequency reports and risk alerts
+├── users/              # Gerenciamento de usuários (professor e aluno)
+├── subjects/           # Matérias e turmas
+├── attendance/         # Sessões e registros de presença
+├── qrcodes/            # Geração e validação do QR Code
+├── reports/            # Relatórios de frequência e alertas
 ├── manage.py
 └── requirements.txt
 ```
 
 ---
 
-## Getting Started
+## Como executar
 
-### Prerequisites
+### Pré-requisitos
 
 - Python 3.11+
 - Git
 
-### Installation
+### Instalação
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/aura.git
+# Clonar o repositório
+git clone https://github.com/PauloKT/aura.git
 cd aura
 
-# Create and activate virtual environment
+# Criar e ativar o ambiente virtual
 python -m venv venv
 
 # Windows
@@ -91,60 +91,60 @@ venv\Scripts\activate
 # Mac/Linux
 source venv/bin/activate
 
-# Install dependencies
+# Instalar as dependências
 pip install -r requirements.txt
 
-# Apply migrations
+# Aplicar as migrações
 python manage.py migrate
 
-# Create superuser (optional)
+# Criar superusuário (opcional)
 python manage.py createsuperuser
 
-# Run the development server
+# Iniciar o servidor de desenvolvimento
 python manage.py runserver
 ```
 
-Access the system at `http://127.0.0.1:8000`
+Acesse o sistema em `http://127.0.0.1:8000`
 
 ---
 
-## Attendance Flow
+## Fluxo de registro de presença
 
 ```
-Professor starts session
-        ↓
-System generates dynamic QR Code (unique token, expires in 60s)
-        ↓
-Professor displays QR Code on projector
-        ↓
-Student scans QR Code
-        ↓
-GPS validated (within 50m radius)
-        ↓
-Biometric confirmed (WebAuthn — Face ID / fingerprint)
-        ↓
-Attendance registered ✓
-        ↓
-Professor's list updated in real time
+Professor inicia a chamada
+        |
+Sistema gera QR Code dinâmico (token único, expira em 60s)
+        |
+Professor exibe o QR Code no projetor
+        |
+Aluno escaneia o QR Code
+        |
+GPS validado (raio de 50m da sala)
+        |
+Biometria confirmada (WebAuthn — Face ID / impressão digital)
+        |
+Presença registrada
+        |
+Lista do professor atualizada em tempo real
 ```
 
 ---
 
-## Privacy & LGPD Compliance
+## Privacidade e LGPD
 
-AURA was designed with student privacy in mind. The WebAuthn protocol ensures that biometric data (fingerprint, Face ID) **never leaves the student's device** and is **never transmitted to or stored on the server**. Only a cryptographic signature is used to confirm identity, in full compliance with Brazil's General Data Protection Law (LGPD).
+O AURA foi desenvolvido com atenção à privacidade dos dados dos alunos. O protocolo WebAuthn garante que os dados biométricos (impressão digital, Face ID) nunca saiam do dispositivo do aluno e nunca sejam transmitidos ou armazenados no servidor. Apenas uma assinatura criptográfica é utilizada para confirmar a identidade, em conformidade com a Lei Geral de Proteção de Dados (LGPD).
 
 ---
 
-## Authors
+## Autores
 
-Developed as a final undergraduate project (TCC).
+Desenvolvido como Trabalho de Conclusão de Curso (TCC).
 
 - **Paulo Amaral** — [GitHub](https://github.com/PauloKT)
 - **Heitor Cortes** — [GitHub](https://github.com/heitorpcrl)
 
 ---
 
-## License
+## Licença
 
-This project is for academic purposes.
+Este projeto foi desenvolvido para fins acadêmicos.
