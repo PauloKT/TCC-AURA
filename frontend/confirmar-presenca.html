@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TCC AURA - Confirmação de Presença</title>
+    <link rel="stylesheet" href="confirmar-presenca.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Confirmação de Presença</h1>
+
+      <div id="error-message" class="error"></div>
+      <div id="success-message" class="success"></div>
+
+      <div id="loading" class="loading">Carregando dados da sessão...</div>
+
+      <div id="content" style="display: none;">
+        <p>
+          Código da sessão: <strong id="session-code"></strong>
+        </p>
+        <p>
+          Token válido por: <strong id="token-time"></strong> segundos
+        </p>
+        <p>
+          Coordenadas da instituição: Latitude <strong id="inst-lat"></strong>,
+          Longitude <strong id="inst-lng"></strong>
+        </p>
+        <p>
+          Raio permitido: <strong id="inst-radius"></strong> metros
+        </p>
+
+        <div id="location-status">
+          <p id="waiting-location">Aguarde enquanto obtemos sua localização...</p>
+          <p id="user-location" style="display: none;">
+            Sua localização: Latitude <strong id="user-lat"></strong>,
+            Longitude <strong id="user-lng"></strong>
+          </p>
+          <p id="location-error" class="error"></p>
+        </div>
+
+        <button id="confirm-btn">Confirmar Presença</button>
+      </div>
+    </div>
+
+    <script src="confirmar-presenca.js"></script>
+  </body>
+</html>
