@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TCC AURA - Painel do Professor</title>
+    <link rel="stylesheet" href="professor.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Painel do Professor</h1>
+
+      <div id="loading" class="loading">Carregando...</div>
+
+      <div id="content" style="display: none;">
+        <div class="section">
+          <h2>Minhas Matérias</h2>
+          <select id="materia-select">
+            <option value="">Selecione uma matéria</option>
+          </select>
+
+          <div class="form-section" id="materia-form">
+            <h3>Cadastrar Nova Matéria</h3>
+            <input
+              type="text"
+              id="materia-nome"
+              placeholder="Nome"
+            />
+            <input
+              type="text"
+              id="materia-codigo"
+              placeholder="Código"
+            />
+            <input
+              type="number"
+              id="materia-carga"
+              placeholder="Carga Horária"
+            />
+            <input
+              type="number"
+              id="materia-freq"
+              placeholder="Frequência Mínima (%)"
+            />
+            <button id="create-materia-btn">Salvar Matéria</button>
+          </div>
+        </div>
+
+        <div id="turmas-section" class="section" style="display: none;">
+          <h2>Turmas da Matéria <span id="materia-nome-display"></span></h2>
+          <select id="turma-select">
+            <option value="">Selecione uma turma</option>
+          </select>
+
+          <div class="form-section" id="turma-form">
+            <h3>Cadastrar Nova Turma</h3>
+            <input
+              type="text"
+              id="turma-nome"
+              placeholder="Nome"
+            />
+            <input
+              type="text"
+              id="turma-semestre"
+              placeholder="Semestre (ex: 2024.1)"
+            />
+            <input
+              type="number"
+              id="turma-ano"
+              placeholder="Ano"
+            />
+            <button id="create-turma-btn">Salvar Turma</button>
+          </div>
+        </div>
+
+        <div id="aulas-section" class="section" style="display: none;">
+          <h2>Aulas da Turma <span id="turma-nome-display"></span></h2>
+          <select id="aula-select">
+            <option value="">Selecione uma aula</option>
+          </select>
+
+          <div class="form-section" id="aula-form">
+            <h3>Cadastrar Nova Aula</h3>
+            <input
+              type="text"
+              id="aula-titulo"
+              placeholder="Título"
+            />
+            <input
+              type="date"
+              id="aula-data"
+            />
+            <input
+              type="time"
+              id="aula-inicio"
+            />
+            <input
+              type="time"
+              id="aula-fim"
+            />
+            <button id="create-aula-btn">Salvar Aula</button>
+          </div>
+        </div>
+
+        <div id="session-section" class="section" style="display: none;">
+          <h2>Iniciar Chamada para a Aula Selecionada</h2>
+          <button id="start-session-btn">Iniciar Chamada</button>
+          <div id="qr-code-container" style="display: none; margin-top: 20px; text-align: center;">
+            <h3>QR Code para os Alunos</h3>
+            <img id="qr-code-img" alt="QR Code" />
+            <p>Token válido por: <strong id="countdown">00:30</strong> segundos</p>
+            <p id="location-info"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="professor.js"></script>
+  </body>
+</html>
