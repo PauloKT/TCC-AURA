@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TCC AURA - Registro</title>
+    <link rel="stylesheet" href="register.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h2>Registro</h2>
+      <div id="error-message" class="error"></div>
+      <div id="success-message" class="success"></div>
+      <form id="register-form">
+        <div class="form-group">
+          <label for="username">Usuário:</label>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="email">E-mail:</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="password">Senha:</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="password2">Confirmar Senha:</label>
+          <input
+            type="password"
+            id="password2"
+            name="password2"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="role">Tipo de Usuário:</label>
+          <select id="role" name="role">
+            <option value="aluno">Aluno</option>
+            <option value="professor">Professor</option>
+          </select>
+        </div>
+        <div class="form-group" id="matricula-group">
+          <label for="matricula">Matrícula:</label>
+          <input
+            type="text"
+            id="matricula"
+            name="matricula"
+          />
+        </div>
+        <div class="form-group" id="cep-group" style="display: none;">
+          <label for="cep">CEP:</label>
+          <input
+            type="text"
+            id="cep"
+            name="cep"
+            placeholder="00000-000"
+          />
+        </div>
+        <button type="submit">Registrar</button>
+      </form>
+      <p>
+        Já tem uma conta? <a href="login.html">Faça login</a>
+      </p>
+    </div>
+
+    <script src="register.js"></script>
+  </body>
+</html>
