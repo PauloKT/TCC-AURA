@@ -1,88 +1,103 @@
-# AURA — Automated University Roll-call and Attendance
+# AURA — Controle Automatizado de Chamada Universitária
 
-> Web system for academic attendance control using dynamic QR Code, GPS geolocation and WebAuthn biometric authentication. Built with Django and Django REST Framework.
-
----
-
-## About the Project
-
-AURA is an academic web system developed as a final undergraduate project (TCC) to automate classroom attendance control in higher education institutions. The system combines three security layers to prevent fraud and ensure that only physically present students can register their attendance.
-
-**Security layers:**
-- **Dynamic QR Code** — unique token generated per class, expires in 60 seconds
-- **GPS Geolocation** — validates that the student is within a 50-meter radius of the classroom
-- **WebAuthn** — biometric authentication (Face ID / fingerprint) performed locally on the device, no biometric data is sent to or stored on the server
+> Sistema web para controle acadêmico de frequência utilizando QR Code dinâmico, geolocalização GPS e autenticação biométrica WebAuthn. Construído com Django e Django REST Framework.
 
 ---
 
-## Features
+## Sobre o Projeto
 
-### Professor
-- Register and manage subjects and classes
-- Define minimum attendance percentage per subject
-- Start and end class sessions
-- Display dynamic QR Code for students to scan
-- View real-time attendance list
-- Monitor student attendance risk alerts
-- Access frequency reports
+AURA é um sistema web desenvolvido como trabalho de conclusão de curso (TCC) para automatizar o controle de frequência em instituições de ensino superior. O sistema combina três camadas de segurança para prevenir fraudes e garantir que apenas alunos fisicamente presentes possam registrar sua frequência.
 
-### Student
-- Self-registration on the platform
-- Join classes via professor-generated invite link
-- Register attendance by scanning the QR Code
-- Track personal attendance and status per subject
+### Três Camadas de Segurança
+- **QR Code Dinâmico** — token único gerado por aula, com validade de 60 segundos
+- **Geolocalização GPS** — valida se o estudante está dentro de um raio de 50 metros da sala de aula
+- **Autenticação Biométrica WebAuthn** — autenticação por impressão digital ou reconhecimento facial realizada localmente no dispositivo, nenhum dado biométrico é enviado ou armazenado no servidor
 
 ---
 
-## Tech Stack
+## Funcionalidades
 
-| Layer | Technology |
-|---|---|
-| Language | Python 3.11+ |
+### Para Professores
+- Cadastrar e gerenciar disciplinas e turmas
+- Definir percentual mínimo de frequência por disciplina
+- Iniciar e encerrar sessões de aula
+- Exibir QR Code dinâmico para escaneamento
+- Visualizar lista de presença em tempo real
+- Monitorar alertas de risco de frequência
+- Acessar relatórios de frequência
+
+### Para Alunos
+- Auto-registro na plataforma
+- Entrar em turmas via link de convite do professor
+- Registrar presença escaneando o QR Code
+- Acompanhar frequência pessoal e status por disciplina
+
+---
+
+## Pilha de Tecnologia
+
+| Camada | Tecnologia |
+|--------|------------|
+| Linguagem | Python 3.11+ |
 | Framework | Django + Django REST Framework |
-| Database | SQLite (development) |
+| Banco de Dados | SQLite (desenvolvimento) |
 | Frontend | HTML, CSS, JavaScript, Bootstrap 5 |
-| QR Code generation | `qrcode` (Python library) |
-| Geolocation | Geolocation API (browser-native) |
-| Biometric auth | WebAuthn via `py_webauthn` |
-| Version control | Git + GitHub |
+| Geração de QR Code | Biblioteca Python `qrcode` |
+| Geolocalização | API do Navegador (browser-native) |
+| Autenticação Biométrica | WebAuthn via `py_webauthn` |
+| Controle de Versão | Git + GitHub |
 
 ---
 
-## Project Structure
+## Estrutura do Projeto
 
 ```
-aura/
-├── core/               # Django project settings
-│   ├── settings.py
-│   ├── urls.py
-│   └── wsgi.py
-├── users/              # User management (professor & student profiles)
-├── subjects/           # Subjects and classes
-├── attendance/         # Sessions and attendance records
-├── qrcodes/            # QR Code generation and token validation
-├── reports/            # Frequency reports and risk alerts
-├── manage.py
-└── requirements.txt
+TCC-AURA/
+├── backend/                  # Backend Django
+│   ├── accounts/             # Gestão de usuários (professor/aluno)
+│   ├── attendance/           # Registro de frequência
+│   ├── courses/              # Gestão de disciplinas/turmas
+│   ├── db.sqlite3            # Banco de dados SQLite
+│   └── manage.py             # Script de gerenciamento Django
+├── frontend/                 # Assets do frontend
+│   ├── assets/               # CSS, JS, imagens
+│   ├── pages/                # Páginas HTML
+│   │   ├── aluno/            # Interface do aluno
+│   │   │   ├── frequencia.html
+│   │   │   ├── frequenciaConfirmada.html
+│   │   │   ├── home.html
+│   │   │   ├── login.html
+│   │   │   ├── registro.html
+│   │   │   └── sair.html
+│   │   └── professor/        # Interface do professor
+│   │       ├── home.html
+│   │       ├── lista.html
+│   │       ├── login.html
+│   │       ├── registro.html
+│   │       └── sair.html
+│   └── templates/            # Templates HTML
+├── .venv/ & venv/            # Ambientes virtuais Python
+├── .git/                     # Repositório Git
+├── .claude/                  # Configuração do Claude Code
+└── README.md                 # Documentação do projeto
 ```
 
 ---
 
-## Getting Started
+## Como Começar
 
-### Prerequisites
-
+### Pré-requisitos
 - Python 3.11+
 - Git
 
-### Installation
+### Instalação
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/aura.git
+# Clone o repositório
+git clone https://github.com/seu-usuario/aura.git
 cd aura
 
-# Create and activate virtual environment
+# Crie e ative o ambiente virtual
 python -m venv venv
 
 # Windows
@@ -91,60 +106,60 @@ venv\Scripts\activate
 # Mac/Linux
 source venv/bin/activate
 
-# Install dependencies
+# Instale as dependências
 pip install -r requirements.txt
 
-# Apply migrations
+# Aplique as migrações
 python manage.py migrate
 
-# Create superuser (optional)
+# Crie superusuário (opcional)
 python manage.py createsuperuser
 
-# Run the development server
+# Inicie o servidor de desenvolvimento
 python manage.py runserver
 ```
 
-Access the system at `http://127.0.0.1:8000`
+Acesse o sistema em: http://127.0.0.1:8000
 
 ---
 
-## Attendance Flow
+## Fluxo de Frequência
 
 ```
-Professor starts session
+Professor inicia sessão
         ↓
-System generates dynamic QR Code (unique token, expires in 60s)
+Sistema gera QR Code dinâmico (token único, expira em 60s)
         ↓
-Professor displays QR Code on projector
+Professor exibe QR Code no projetor
         ↓
-Student scans QR Code
+Aluno escanea o QR Code
         ↓
-GPS validated (within 50m radius)
+GPS validado (dentro de 50m da sala)
         ↓
-Biometric confirmed (WebAuthn — Face ID / fingerprint)
+Autenticação biométrica confirmada (WebAuthn — Face ID / impressão digital)
         ↓
-Attendance registered ✓
+Frequência registrada ✓
         ↓
-Professor's list updated in real time
+Lista do professor atualizada em tempo real
 ```
 
 ---
 
-## Privacy & LGPD Compliance
+## Privacidade e LGPD
 
-AURA was designed with student privacy in mind. The WebAuthn protocol ensures that biometric data (fingerprint, Face ID) **never leaves the student's device** and is **never transmitted to or stored on the server**. Only a cryptographic signature is used to confirm identity, in full compliance with Brazil's General Data Protection Law (LGPD).
+O sistema foi projetado pensando na privacidade do aluno. O protocolo WebAuthn garante que dados biométricos (impressão digital, Face ID) **nunca deixem o dispositivo do usuário** e **não sejam transmitidos ou armazenados no servidor**. Apenas uma assinatura criptográfica é utilizada para confirmar identidade, em total conformidade com a Lei Geral de Proteção de Dados (LGPD) brasileira.
 
 ---
 
-## Authors
+## Autores
 
-Developed as a final undergraduate project (TCC).
+Desenvolvido como trabalho de conclusão de curso (TCC).
 
 - **Paulo Amaral** — [GitHub](https://github.com/PauloKT)
 - **Heitor Cortes** — [GitHub](https://github.com/heitorpcrl)
 
 ---
 
-## License
+## Licença
 
-This project is for academic purposes.
+Este projeto é destinado exclusivamente para fins acadêmicos.
