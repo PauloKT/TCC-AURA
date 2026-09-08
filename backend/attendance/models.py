@@ -114,8 +114,8 @@ class Presenca(models.Model):
             self.longitude,
             self.sessao.professor_radius_meters
         )
-        # Só é válida se GPS ok E (3ª camada desabilitada OU WebAuthn verificado).
-        self.valida = gps_ok and self.webauthn_verified
+        # A biometria não faz parte do fluxo ativo; QR Code e geolocalização validam a presença.
+        self.valida = gps_ok
         self.localizacao_capturada_em = timezone.now()
         super().save(*args, **kwargs)
 

@@ -21,7 +21,19 @@ Validar o estado geral do código e criar uma referência única para arquitetur
 
 ### Pendência registrada
 
-O backend possui o fluxo WebAuthn, mas o frontend HTML/JavaScript ainda não envia `webauthn_token` ao registrar a presença. A integração deve ser implementada e testada antes de considerar a terceira camada concluída ponta a ponta.
+Na versão anterior, o backend possuía o fluxo WebAuthn, mas o frontend HTML/JavaScript não enviava `webauthn_token` ao registrar a presença. Essa dependência foi removida do fluxo ativo no registro de 2026-09-08 abaixo.
+
+## 2026-09-08 - Remoção da biometria do fluxo ativo
+
+### Objetivo
+
+Deixar o registro de presença funcional sem depender de WebAuthn.
+
+### Comportamento
+
+- O login continua usando usuário, senha e JWT.
+- A presença válida depende de QR Code ativo, matrícula e geolocalização dentro do raio.
+- Os campos e endpoints WebAuthn permanecem no backend apenas para compatibilidade com dados e código legado, mas não bloqueiam novas presenças.
 
 ## 2026-09-08 - Instituições e endereço completo
 

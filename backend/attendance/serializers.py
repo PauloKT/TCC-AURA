@@ -1,6 +1,4 @@
 from rest_framework import serializers
-from rest_framework_simplejwt.exceptions import InvalidToken
-from rest_framework_simplejwt.tokens import AccessToken
 from django.utils import timezone
 from .models import SessaoChamada, Presenca
 from .geolocation import is_within_radius, validate_coordinates
@@ -42,17 +40,16 @@ class PresencaSerializer(serializers.ModelSerializer):
 
 class PresencaCreateSerializer(serializers.Serializer):
     """
-    Valida o registro de presença:
-      - sessao_id e token batem
-      - sessão está ativa e não expirada
-      - token (URL) corresponde ao token atual da sessão
-      - webauthn_token (opcional, mas recomendado) comprova a 3ª camada
+        Valida o registro de presença por QR Code e geolocalização:
+            - sessao_id e token batem
+            - sessão está ativa e não expirada
+            - token (URL) corresponde ao token atual da sessão
+            - localização está dentro do raio permitido
     """
     sessao_id = serializers.IntegerField()
     token = serializers.CharField()
     latitude = serializers.FloatField()
     longitude = serializers.FloatField()
-    webauthn_token = serializers.CharField(required=False, allow_blank=True)
 
     def validate(self, attrs):
         try:
@@ -87,19 +84,7 @@ class PresencaCreateSerializer(serializers.Serializer):
                 'detail': 'Você está fora do raio permitido para registrar presença.'
             })
 
-        # Verifica webauthn_token (se enviado)
-        webauthn_ok = False
-        if attrs.get('webauthn_token'):
-            try:
-                token = AccessToken(attrs['webauthn_token'])
-                if (token.get('user_id') == self.context['request'].user.id
-                        and token.get('webauthn_verified') is True):
-                    webauthn_ok = True
-            except InvalidToken:
-                webauthn_ok = False
-
         attrs['sessao'] = sessao
-        attrs['webauthn_ok'] = webauthn_ok
         return attrs
 
     def create(self, validated_data):
@@ -116,7 +101,8 @@ class PresencaCreateSerializer(serializers.Serializer):
             aluno=aluno,
             latitude=validated_data['latitude'],
             longitude=validated_data['longitude'],
-            webauthn_verified=validated_data['webauthn_ok'],
+            # Mantido como legado para compatibilidade com registros antigos.
+            webauthn_verified=True,
         )
         presenca.save()  # save() do model recalcula .valida com base em GPS
         return presenca

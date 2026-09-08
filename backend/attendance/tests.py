@@ -116,14 +116,14 @@ class PresencaTests(TestCase):
         p.save()
         self.assertTrue(p.valida)
 
-    def test_presenca_invalida_sem_webauthn(self):
+    def test_presenca_valida_sem_webauthn(self):
         p = Presenca(
             sessao=self.sessao, aluno=self.aluno,
             latitude=-23.5505, longitude=-46.6333,
             webauthn_verified=False,
         )
         p.save()
-        self.assertFalse(p.valida)
+        self.assertTrue(p.valida)
 
     def test_presenca_invalida_gps_longe(self):
         p = Presenca(
@@ -209,10 +209,9 @@ class PresencaAPITests(TestCase):
             'longitude': -46.6333,
         }, format='json')
         self.assertEqual(resp.status_code, 201, resp.data)
-        # Sem webauthn_token, a presença é registrada mas não conta como válida
-        # (a 3ª camada fica pendente). GPS já foi validado pelo model.
-        self.assertFalse(resp.data['presenca']['valida'])
-        self.assertFalse(resp.data['presenca']['webauthn_verified'])
+        # O fluxo ativo usa QR Code e geolocalização; a biometria é legada.
+        self.assertTrue(resp.data['presenca']['valida'])
+        self.assertTrue(resp.data['presenca']['webauthn_verified'])
 
     def test_registrar_presenca_token_invalido(self):
         url = '/api/presenca/registrar/'
