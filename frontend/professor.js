@@ -53,7 +53,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const base64Url = token.split('.')[1];
+      let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      // Pad with = to make length a multiple of 4
+      while (base64.length % 4) {
+        base64 += '=';
+      }
+      const payload = JSON.parse(atob(base64));
       if (payload.role !== 'professor') {
         window.location.href = 'login.html';
         return;
@@ -65,7 +71,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Fetch initial data
       fetchMaterias();
-    } catch ());
     } catch (e) {
       window.location.href = 'login.html';
     }
@@ -271,8 +276,6 @@ document.addEventListener('DOMContentLoaded', function() {
         body: JSON.stringify({
           nome: nome,
           materia: materiaId,
-          semestre: semestre: semestre,
-          semestre: semestre,
           semestre: semestre,
           ano: ano
         })
@@ -322,8 +325,8 @@ document.addEventListener('DOMContentLoaded', function() {
           titulo: titulo,
           turma: turmaId,
           data: data,
-          horario_inicio: inicio,
-          horario_fim: fim
+          hora_inicio: inicio,
+          hora_fim: fim
         })
       });
 

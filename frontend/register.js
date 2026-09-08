@@ -4,26 +4,29 @@ document.addEventListener('DOMContentLoaded', function() {
   const successMessage = document.getElementById('success-message');
   const roleSelect = document.getElementById('role');
   const matriculaGroup = document.getElementById('matricula-group');
-  const cepGroup = document.getElementById('cep-group');
+  const institutionGroup = document.getElementById('institution-group');
+  const institutionSelect = document.getElementById('instituicao');
+
+  loadInstitutions();
 
   // Toggle fields based on role selection
   roleSelect.addEventListener('change', function() {
     if (this.value === 'aluno') {
       matriculaGroup.style.display = 'block';
-      cepGroup.style.display = 'none';
+      institutionGroup.style.display = 'none';
     } else {
       matriculaGroup.style.display = 'none';
-      cepGroup.style.display = 'block';
+      institutionGroup.style.display = 'block';
     }
   });
 
   // Initialize based on default value
   if (roleSelect.value === 'aluno') {
     matriculaGroup.style.display = 'block';
-    cepGroup.style.display = 'none';
+    institutionGroup.style.display = 'none';
   } else {
     matriculaGroup.style.display = 'none';
-    cepGroup.style.display = 'block';
+    institutionGroup.style.display = 'block';
   }
 
   form.addEventListener('submit', async function(e) {
@@ -43,7 +46,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const password2 = formData.get('password2');
     const role = formData.get('role');
     const matricula = role === 'aluno' ? formData.get('matricula').trim() : undefined;
-    const cep = role === 'professor' ? formData.get('cep').trim() : undefined;
+    const instituicoes = role === 'professor'
+      ? Array.from(institutionSelect.selectedOptions)
+        .map(option => Number(option.value))
+        .filter(Boolean)
+      : undefined;
 
     // Basic validation
     if (!username) {
@@ -71,8 +78,8 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
-    if (role === 'professor' && !cep) {
-      showError('CEP é obrigatório para professores');
+    if (role === 'professor' && !instituicoes.length) {
+      showError('Selecione ao menos uma instituição');
       return;
     }
 
@@ -90,8 +97,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 
-    if (cep !== undefined) {
-      data.cep = cep;
+    if (instituicoes !== undefined) {
+      data.instituicoes = instituicoes;
     }
 
     try {
@@ -131,5 +138,25 @@ document.addEventListener('DOMContentLoaded', function() {
   function showSuccess(message) {
     successMessage.textContent = message;
     successMessage.classList.add('show');
+  }
+
+  async function loadInstitutions() {
+    try {
+      const response = await fetch('/api/instituicoes/');
+      if (!response.ok) throw new Error('Não foi possível carregar as instituições.');
+      const data = await response.json();
+      institutionSelect.innerHTML = '<option value="" disabled>Selecione uma instituição</option>';
+      data.forEach(institution => {
+        const option = document.createElement('option');
+        option.value = institution.id;
+        option.textContent = `${institution.nome} - ${institution.cidade}/${institution.estado}`;
+        option.disabled = institution.latitude === null || institution.longitude === null;
+        if (option.disabled) option.textContent += ' (localização pendente)';
+        institutionSelect.appendChild(option);
+      });
+    } catch (error) {
+      institutionSelect.innerHTML = '<option value="">Erro ao carregar instituições</option>';
+      showError(error.message);
+    }
   }
 });

@@ -21,7 +21,7 @@ O AURA é um sistema web desenvolvido como trabalho de conclusão de curso (TCC)
   - `attendance`: Registro de frequência com validação de QR Code, GPS e preparação para WebAuthn
 
 ### Frontend
-- HTML, CSS, JavaScript puro com alguns componentes React
+- HTML, CSS e JavaScript puro
 - Templates Django para renderização server-side
 - Interface separada para professores e alunos
 
@@ -35,7 +35,7 @@ O AURA é um sistema web desenvolvido como trabalho de conclusão de curso (TCC)
 ### 2. Implementação de Segurança Robusta
 - **QR Code Dinâmico**: Tokens únicos com expiração de 30 segundos
 - **Geolocalização**: Algoritmo otimizado de Haversine com pré-filtro de bounding box para performance
-- **Preparação para WebAuthn**: Estrutura preparada para implementação de autenticação biométrica (conforme mencionado no README)
+- **WebAuthn**: Backend com credenciais, challenges e endpoints de registro/autenticação; a integração com o frontend ainda está pendente
 
 ### 3. Performance e Otimizações
 - Índices estratégicos nos modelos para consultas frequentes
@@ -56,22 +56,22 @@ O AURA é um sistema web desenvolvido como trabalho de conclusão de curso (TCC)
 - **Risco**: Vulnerabilidade significativa que permite requisições de qualquer origem
 - **Solução**: Definir origens específicas em produção, usar variáveis de ambiente para configurar dinamicamente
 
-**WebAuthn Ausente**:
-- Apesar de mencionado no README, não encontrei implementação real do WebAuthn
-- O modelo `Presenca` tem campos para localização, mas não para desafio/resposta WebAuthn
-- **Solução**: Implementar fluxo completo WebAuthn usando a biblioteca `py_webauthn` conforme prometido
+**Integração WebAuthn incompleta**:
+- O backend já possui modelos de credencial/challenge e endpoints usando `py_webauthn`
+- A biometria não é armazenada no servidor; são persistidas a credencial pública e metadados do autenticador
+- O frontend HTML/JavaScript ainda precisa executar `navigator.credentials.get()` e enviar `webauthn_token` ao registrar a presença
+- **Solução**: concluir a integração ponta a ponta e adicionar testes de contrato entre frontend e API
 
 ### 2. Consistência Técnica
-**Frontend Híbrido**:
-- Mix de templates Django tradicionais com componentes React
-- Pode causar confusão na manutenção e inconsistência na UX
-- **Solução**: Escolher uma abordagem consistente (totalmente Django templates ou SPA React/Vue)
+**Organização do frontend**:
+- O projeto utiliza templates HTML e JavaScript puro, sem uma segunda implementação React
+- Manter uma única abordagem reduz duplicidade e inconsistência entre as telas
 
 ### 3. Qualidade e Manutenibilidade
 **Documentação**:
-- Falta de docstrings detalhadas em métodos complexos
-- Documentação da API poderia ser aprimorada com Swagger/OpenAPI
-- **Solução**: Adicionar docstrings seguindo convenções Google ou NumPy style
+- O guia técnico e o registro de alterações ficam em `docs/GUIA_TECNICO.md` e `docs/REGISTRO_ALTERACOES.md`
+- A documentação da API pode ser aprimorada com Swagger/OpenAPI
+- **Solução**: manter docstrings/JSDoc nos símbolos alterados e atualizar os documentos a cada mudança de fluxo
 
 **Tratamento de Erros**:
 - Alguns endpoints retornam mensagens genéricas de erro
@@ -101,10 +101,10 @@ O AURA é um sistema web desenvolvido como trabalho de conclusão de curso (TCC)
    ]
    ```
 
-2. **Implementar WebAuthn**:
-   - Adicionar campos necessários ao modelo `Presenca` ou criar novo modelo para credenciais WebAuthn
-   - Implementar views para registro e autenticação WebAuthn
-   - Integrar fluxo WebAuthn no frontend durante o check-in
+2. **Concluir integração WebAuthn**:
+   - Integrar `navigator.credentials.get()` ao frontend tradicional
+   - Enviar o `webauthn_token` junto do registro de presença
+   - Adicionar testes de contrato do fluxo completo
 
 3. **Padronizar Variáveis de Ambiente**:
    - Migrar todas as configurações sensíveis para `.env`
@@ -112,7 +112,8 @@ O AURA é um sistema web desenvolvido como trabalho de conclusão de curso (TCC)
 
 ### Médio Prazo (1-2 meses)
 1. **Melhorar Documentação**:
-   - Adicionar docstrings detalhados usando convenção Google/NumPy
+   - Manter o guia técnico e o registro de alterações atualizados
+   - Adicionar docstrings detalhados aos símbolos criados ou alterados
    - Gerar documentação API com DRF Spectacular ou Swagger
 
 2. **Implementar Testes Automatizados**:

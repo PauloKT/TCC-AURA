@@ -43,9 +43,11 @@ document.addEventListener('DOMContentLoaded', function() {
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
 
-      // Decode token to get role (simple base64)
+      // Decode token to get role (base64url)
       try {
-        const payload = JSON.parse(atob(access.split('.')[1]));
+        const base64Url = access.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(atob(base64));
         if (payload.role === 'professor') {
           window.location.href = 'professor.html';
         } else {

@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import CustomUser
+from courses.models import Instituicao
 
 User = get_user_model()
 
@@ -9,10 +10,15 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     password2 = serializers.CharField(write_only=True, label="Confirmar senha")
     cep = serializers.CharField(required=False, allow_blank=True, max_length=9)
+    instituicoes = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Instituicao.objects.filter(ativa=True),
+        required=False,
+    )
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'role', 'matricula', 'cep', 'password', 'password2')
+        fields = ('username', 'email', 'role', 'matricula', 'instituicao', 'instituicoes', 'cep', 'password', 'password2')
         extra_kwargs = {
             'email': {'required': True},
         }
@@ -48,18 +54,29 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         if attrs.get('role') == 'aluno' and not attrs.get('matricula'):
             raise serializers.ValidationError({"matricula": "Matrícula é obrigatória para alunos."})
 
-        if attrs.get('role') == 'professor' and not attrs.get('cep'):
-            raise serializers.ValidationError({"cep": "CEP é obrigatório para professores."})
+        if attrs.get('role') == 'professor':
+            instituicoes = attrs.get('instituicoes', [])
+            instituicao = attrs.get('instituicao')
+            if not instituicoes and instituicao:
+                instituicoes = [instituicao]
+                attrs['instituicoes'] = instituicoes
+            if not instituicoes or not all(instituicao.ativa for instituicao in instituicoes):
+                raise serializers.ValidationError({
+                    'instituicao': 'Selecione ao menos uma instituição ativa para professores.'
+                })
         return attrs
 
     def create(self, validated_data):
         # Remove password2
         validated_data.pop('password2')
         password = validated_data.pop('password')
-        cep = validated_data.pop('cep', None)
+        instituicoes = validated_data.pop('instituicoes', [])
+        if instituicoes and not validated_data.get('instituicao'):
+            validated_data['instituicao'] = instituicoes[0]
         # Create user with the password properly hashed
         user = User.objects.create_user(password=password, **validated_data)
-        user.cep = cep
+        if instituicoes:
+            user.instituicoes.set(instituicoes)
         user.save()
         return user
 

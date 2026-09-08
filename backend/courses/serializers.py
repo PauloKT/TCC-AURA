@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Materia, Turma, Aula, TurmaAluno
+from .models import Instituicao, Materia, Turma, Aula, TurmaAluno
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -11,6 +11,23 @@ class MateriaSerializer(serializers.ModelSerializer):
         model = Materia
         fields = ['id', 'nome', 'codigo', 'carga_horaria', 'frequencia_minima', 'professor', 'professor_username', 'created_at']
         read_only_fields = ['professor', 'created_at']
+
+
+class InstituicaoSerializer(serializers.ModelSerializer):
+    """Expõe instituições ativas e suas coordenadas confirmadas."""
+
+    endereco_completo = serializers.ReadOnlyField()
+
+    class Meta:
+        model = Instituicao
+        fields = [
+            'id', 'nome', 'logradouro', 'numero', 'bairro', 'cidade',
+            'estado', 'pais', 'endereco_completo', 'latitude', 'longitude',
+            'radius_meters', 'geocodificada_em', 'geocoding_source', 'ativa',
+        ]
+        read_only_fields = [
+            'latitude', 'longitude', 'geocodificada_em', 'geocoding_source',
+        ]
 
 class TurmaSerializer(serializers.ModelSerializer):
     materia_nome = serializers.CharField(source='materia.nome', read_only=True)
@@ -32,17 +49,13 @@ class TurmaAlunoSerializer(serializers.ModelSerializer):
 
 class AulaSerializer(serializers.ModelSerializer):
     turma_nome = serializers.CharField(source='turma.nome', read_only=True)
+    hora_inicio = serializers.TimeField(source='horario_inicio')
+    hora_fim = serializers.TimeField(source='horario_fim')
+    criada_em = serializers.DateTimeField(source='criada_em', read_only=True)
 
     class Meta:
         model = Aula
         fields = ['id', 'turma', 'titulo', 'data', 'hora_inicio', 'hora_fim', 'criada_em']
-        # Note: field names in model are horario_inicio and horario_fim
-        # We'll map them accordingly
-        extra_kwargs = {
-            'horario_inicio': {'source': 'horario_inicio'},
-            'horario_fim': {'source': 'horario_fim'},
-            'criada_em': {'source': 'criada_em'},
-        }
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)

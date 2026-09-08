@@ -4,8 +4,9 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
+from django.db.models import Count, Q
 from django.contrib.auth import get_user_model
-from courses.models import Turma, Aula
+from courses.models import Turma, Aula, TurmaAluno
 from attendance.models import SessaoChamada, Presenca
 from .serializers import UserRegistrationSerializer, CustomTokenObtainPairSerializer
 from .models import CustomUser
@@ -107,3 +108,146 @@ class AlunoMinhaFrequenciaView(APIView):
             'percentual': round(percentual, 2),
             'situacao': situacao
         })
+
+
+def _calcular_frequencia(aluno, turma):
+    """
+    Calcula o percentual de frequência de um aluno em uma turma.
+    Retorna (percentual, situacao).
+    """
+    sessoes = SessaoChamada.objects.filter(aula__turma=turma)
+    total_sessoes = sessoes.count()
+
+    if total_sessoes == 0:
+        return 0.0, 'sem_dados'
+
+    presencas_validas = sessoes.filter(
+        presencas__aluno=aluno,
+        presencas__valida=True,
+    ).distinct().count()
+
+    percentual = (presencas_validas / total_sessoes) * 100
+
+    frequencia_minima = turma.materia.frequencia_minima
+    if percentual >= frequencia_minima:
+        situacao = 'aprovado'
+    elif percentual > 0:
+        situacao = 'reprovado'
+    else:
+        situacao = 'sem_dados'
+
+    return round(percentual, 2), situacao
+
+
+class AlunoTurmasView(APIView):
+    """
+    GET /api/aluno/turmas/
+    Retorna todas as turmas em que o aluno está matriculado,
+    cada uma com o percentual de frequência calculado e a situação.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'aluno':
+            return Response(
+                {'detail': 'Apenas alunos podem acessar esta informação.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Otimização: prefetch da materia e contagem de sessões em uma query agregada.
+        turmas = (
+            Turma.objects
+            .filter(turmaaluno__aluno=request.user)
+            .select_related('materia')
+            .distinct()
+        )
+
+        # Pré-calcula totais e presenças em batch para eliminar N+1.
+        from django.db.models import Count, Q
+        agregados = {
+            t['id']: t
+            for t in turmas.annotate(
+                total_sessoes=Count('aulas__sessoes', distinct=True),
+                presencas_validas=Count(
+                    'aulas__sessoes__presencas',
+                    filter=Q(aulas__sessoes__presencas__aluno=request.user,
+                             aulas__sessoes__presencas__valida=True),
+                    distinct=True,
+                ),
+            ).values('id', 'total_sessoes', 'presencas_validas')
+        }
+
+        resultado = []
+        for turma in turmas:
+            agg = agregados.get(turma.id, {'total_sessoes': 0, 'presencas_validas': 0})
+            total = agg['total_sessoes'] or 0
+            pres = agg['presencas_validas'] or 0
+            if total == 0:
+                percentual, situacao = 0.0, 'sem_dados'
+            else:
+                percentual = round((pres / total) * 100, 2)
+                freq_min = turma.materia.frequencia_minima
+                if percentual >= freq_min:
+                    situacao = 'aprovado'
+                elif percentual > 0:
+                    situacao = 'reprovado'
+                else:
+                    situacao = 'sem_dados'
+
+            resultado.append({
+                'turma_id': turma.id,
+                'nome': turma.nome,
+                'materia': {
+                    'id': turma.materia.id,
+                    'nome': turma.materia.nome,
+                    'codigo': turma.materia.codigo,
+                },
+                'semestre': turma.semestre,
+                'ano': turma.ano,
+                'ativa': turma.ativa,
+                'percentual': percentual,
+                'situacao': situacao,
+            })
+
+        return Response({'turmas': resultado})
+
+
+class AlunoEntrarTurmaView(APIView):
+    """
+    POST /api/aluno/entrar-turma/
+    Body: { "link_acesso": "<uuid>" }
+    Matricula o aluno autenticado na turma cujo link_acesso bate.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if request.user.role != 'aluno':
+            return Response(
+                {'detail': 'Apenas alunos podem entrar em turmas.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        link = request.data.get('link_acesso')
+        if not link:
+            return Response(
+                {'detail': 'Campo "link_acesso" é obrigatório.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        turma = get_object_or_404(Turma, link_acesso=link, ativa=True)
+
+        matricula, created = TurmaAluno.objects.get_or_create(
+            turma=turma,
+            aluno=request.user,
+        )
+
+        if not created:
+            return Response(
+                {'detail': 'Você já está matriculado nesta turma.', 'turma_id': turma.id},
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {'detail': 'Matriculado com sucesso.', 'turma_id': turma.id},
+            status=status.HTTP_201_CREATED,
+        )

@@ -9,7 +9,7 @@
 AURA é um sistema web desenvolvido como trabalho de conclusão de curso (TCC) para automatizar o controle de frequência em instituições de ensino superior. O sistema combina três camadas de segurança para prevenir fraudes e garantir que apenas alunos fisicamente presentes possam registrar sua frequência.
 
 ### Três Camadas de Segurança
-- **QR Code Dinâmico** — token único gerado por aula, com validade de 60 segundos
+- **QR Code Dinâmico** — token único gerado por aula, com validade de 30 segundos
 - **Geolocalização GPS** — valida se o estudante está dentro de um raio de 50 metros da sala de aula
 - **Autenticação Biométrica WebAuthn** — autenticação por impressão digital ou reconhecimento facial realizada localmente no dispositivo, nenhum dado biométrico é enviado ou armazenado no servidor
 
@@ -59,23 +59,13 @@ TCC-AURA/
 │   ├── courses/              # Gestão de disciplinas/turmas
 │   ├── db.sqlite3            # Banco de dados SQLite
 │   └── manage.py             # Script de gerenciamento Django
-├── frontend/                 # Assets do frontend
-│   ├── assets/               # CSS, JS, imagens
-│   ├── pages/                # Páginas HTML
-│   │   ├── aluno/            # Interface do aluno
-│   │   │   ├── frequencia.html
-│   │   │   ├── frequenciaConfirmada.html
-│   │   │   ├── home.html
-│   │   │   ├── login.html
-│   │   │   ├── registro.html
-│   │   │   └── sair.html
-│   │   └── professor/        # Interface do professor
-│   │       ├── home.html
-│   │       ├── lista.html
-│   │       ├── login.html
-│   │       ├── registro.html
-│   │       └── sair.html
-│   └── templates/            # Templates HTML
+├── frontend/                 # HTML, CSS e JavaScript do frontend
+│   ├── aluno.html/js/css
+│   ├── professor.html/js/css
+│   ├── login.html/js/css
+│   ├── register.html/js/css
+│   └── confirmar-presenca.html/js/css
+├── docs/                     # Guia técnico e registro de alterações
 ├── .venv/ & venv/            # Ambientes virtuais Python
 ├── .git/                     # Repositório Git
 ├── .claude/                  # Configuração do Claude Code
@@ -109,6 +99,9 @@ source venv/bin/activate
 # Instale as dependências
 pip install -r requirements.txt
 
+# Acesse o backend antes dos comandos Django
+cd backend
+
 # Aplique as migrações
 python manage.py migrate
 
@@ -128,7 +121,7 @@ Acesse o sistema em: http://127.0.0.1:8000
 ```
 Professor inicia sessão
         ↓
-Sistema gera QR Code dinâmico (token único, expira em 60s)
+Sistema gera QR Code dinâmico (token único, expira em 30s)
         ↓
 Professor exibe QR Code no projetor
         ↓
@@ -163,3 +156,9 @@ Desenvolvido como trabalho de conclusão de curso (TCC).
 ## Licença
 
 Este projeto é destinado exclusivamente para fins acadêmicos.
+
+## Documentação técnica
+
+Consulte [docs/GUIA_TECNICO.md](docs/GUIA_TECNICO.md) para a arquitetura, fluxos, endpoints, segurança, testes e limitações conhecidas. O histórico de mudanças relevantes fica em [docs/REGISTRO_ALTERACOES.md](docs/REGISTRO_ALTERACOES.md).
+
+O roteiro para confirmar a AEMS e testar o sistema pelo celular está em [docs/TESTE_CELULAR.md](docs/TESTE_CELULAR.md).

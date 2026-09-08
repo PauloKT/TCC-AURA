@@ -2,6 +2,42 @@ from django.db import models
 from django.conf import settings
 import uuid
 
+
+class Instituicao(models.Model):
+    """Local oficial usado como origem da cerca geográfica das sessões."""
+
+    nome = models.CharField(max_length=150, unique=True)
+    logradouro = models.CharField(max_length=200)
+    numero = models.CharField(max_length=20)
+    bairro = models.CharField(max_length=100)
+    cidade = models.CharField(max_length=100)
+    estado = models.CharField(max_length=2)
+    pais = models.CharField(max_length=80, default='Brasil')
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    radius_meters = models.PositiveIntegerField(default=100)
+    geocodificada_em = models.DateTimeField(null=True, blank=True)
+    geocoding_source = models.CharField(max_length=100, blank=True, default='')
+    ativa = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['cidade', 'estado']),
+            models.Index(fields=['ativa']),
+        ]
+
+    @property
+    def endereco_completo(self):
+        """Retorna o endereço pronto para envio ao serviço de geocodificação."""
+        return (
+            f'{self.logradouro}, {self.numero}, {self.bairro}, '
+            f'{self.cidade}, {self.estado}, {self.pais}'
+        )
+
+    def __str__(self):
+        return f'{self.nome} - {self.cidade}/{self.estado}'
+
 class Materia(models.Model):
     nome = models.CharField(max_length=100)
     codigo = models.CharField(max_length=20, unique=True)

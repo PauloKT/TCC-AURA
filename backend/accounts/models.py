@@ -2,7 +2,6 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 import uuid
 import requests
-import json
 from django.conf import settings
 import re
 from django.core.cache import cache
@@ -13,12 +12,21 @@ from django.utils import timezone
 # - CEP lookups: Index on 'cep' field for geocoding operations
 # - Additional indexes should be added based on query analysis and usage patterns
 
+# Cache TTL para geocoding reverso: 24h (CEP raramente muda)
+GEOCODING_CACHE_TTL = 60 * 60 * 24
+
+
 def get_coordinates_from_cep(cep):
     """
-    Use the ViaCEP API (free) to get latitude and longitude from a Brazilian CEP.
-    Returns (latitude, longitude) or (None, None) if not found.
-    Note: ViaCEP does not provide lat/lon; we will use Nominatim (OpenStreetMap) as fallback.
-    Includes caching to prevent redundant API calls.
+    Resolve um CEP brasileiro em coordenadas (lat, lon) usando Nominatim (OSM).
+
+    Estratégia em camadas:
+      1. Sanitiza o CEP (8 dígitos) e consulta o cache do Django.
+      2. Busca o endereço textual via ViaCEP.
+      3. Geocodifica o endereço via Nominatim.
+
+    Returns:
+        tuple[float|None, float|None]: (latitude, longitude) ou (None, None).
     """
     # Clean CEP: remove non-digits
     clean_cep = ''.join(filter(str.isdigit, cep))
@@ -56,15 +64,14 @@ def get_coordinates_from_cep(cep):
                     if data_nom:
                         lat = float(data_nom[0]['lat'])
                         lon = float(data_nom[0]['lon'])
-                        # Cache the result for 24 hours (86400 seconds)
-                        cache.set(cache_key, (lat, lon), 86400)
+                        # Cache the result for 24 hours
+                        cache.set(cache_key, (lat, lon), GEOCODING_CACHE_TTL)
                         return lat, lon
-    except Exception as e:
-        # Log error if needed
-        pass
+    except Exception:
+        # Falha de rede/timeout: cai no fallback. Em produção, enviar para Sentry.
+        return None, None
     return None, None
 
-import re
 
 class CustomUser(AbstractUser):
     ROLE_CHOICES = (
@@ -73,6 +80,22 @@ class CustomUser(AbstractUser):
     )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
     matricula = models.CharField(max_length=20, blank=True, null=True, help_text="Matrícula do aluno (opcional)")
+    instituicao = models.ForeignKey(
+        'courses.Instituicao',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='usuarios',
+        limit_choices_to={'ativa': True},
+        help_text='Instituição usada como referência de geolocalização.',
+    )
+    instituicoes = models.ManyToManyField(
+        'courses.Instituicao',
+        blank=True,
+        related_name='professores',
+        limit_choices_to={'ativa': True},
+        help_text='Instituições onde o professor trabalha.',
+    )
     # For professors: institution CEP and derived coordinates
     cep = models.CharField(max_length=9, blank=True, null=True, help_text="CEP da instituição (apenas para professores)")
     latitude = models.FloatField(blank=True, null=True, help_text="Latitude da instituição")
@@ -87,49 +110,30 @@ class CustomUser(AbstractUser):
         ]
 
     def save(self, *args, **kwargs):
-        # If cep is provided, check if we need to geocode
-        if self.role == 'professor' and self.cep:
-            # If this is an existing instance, check if CEP has changed
-            if self.pk is not None:
-                try:
-                    old_instance = self.__class__.objects.get(pk=self.pk)
-                    # Only geocode if CEP has changed or lat/lng are not set
-                    if self.cep != old_instance.cep or self.latitude is None or self.longitude is None:
-                        lat, lng = get_coordinates_from_cep(self.cep)
-                        if lat is not None and lng is not None:
-                            self.latitude = lat
-                            self.longitude = lng
-                except self.__class__.DoesNotExist:
-                    # If we can't find the old instance, geocode if lat/lng are not set
-                    if self.latitude is None or self.longitude is None:
-                        lat, lng = get_coordinates_from_cep(self.cep)
-                        if lat is not None and lng is not None:
-                            self.latitude = lat
-                            self.longitude = lng
-            else:
-                # This is a new instance, geocode if lat/lng are not set
-                if self.latitude is None or self.longitude is None:
-                    lat, lng = get_coordinates_from_cep(self.cep)
-                    if lat is not None and lng is not None:
-                        self.latitude = lat
-                        self.longitude = lng
-        super().save(*args, **kwargs)
+        """
+        Persiste o usuário. Quando for professor e o CEP for novo,
+        dispara geocoding em background para não bloquear a request de registro.
+        """
+        cep_changed_or_new = (
+            self.role == 'professor'
+            and self.cep
+            and (self.latitude is None or self.longitude is None)
+        )
 
-    def schedule_geocoding(self):
-        """
-        Schedule geocoding for asynchronous processing.
-        In a production environment, this would use Celery or similar task queue.
-        Example:
-            from geocode_tasks import geocode_cep_task
-            geocode_cep_task.delay(self.id, self.cep)
-        """
-        # For now, we'll do it synchronously but with caching
-        # In production, uncomment the following lines and implement Celery task:
-        #
-        # if self.role == 'professor' and self.cep:
-        #     from .tasks import geocode_cep_task
-        #     geocode_cep_task.delay(self.id, self.cep)
-        pass
+        if cep_changed_or_new:
+            # Tenta resolver de forma rápida (cache local). Se falhar, agenda em background.
+            lat, lng = get_coordinates_from_cep(self.cep)
+            if lat is not None and lng is not None:
+                self.latitude = lat
+                self.longitude = lng
+            elif not getattr(settings, 'TESTING', False):
+                # Geocoding em background: thread leve para dev; Celery em prod.
+                from .tasks import geocode_professor_async
+                super().save(*args, **kwargs)
+                geocode_professor_async(self.pk, self.cep)
+                return
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"

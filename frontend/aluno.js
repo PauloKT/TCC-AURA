@@ -18,7 +18,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const base64Url = token.split('.')[1];
+      let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      // Pad with = to make length a multiple of 4
+      while (base64.length % 4) {
+        base64 += '=';
+      }
+      const payload = JSON.parse(atob(base64));
       if (payload.role !== 'aluno') {
         window.location.href = 'login.html';
         return;
