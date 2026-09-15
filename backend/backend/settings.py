@@ -11,9 +11,7 @@ from pathlib import Path
 import os
 from datetime import timedelta
 
-# ----------------------------------------------------------------------------
 # Ambiente (.env)
-# ----------------------------------------------------------------------------
 try:
     from dotenv import load_dotenv
     # Carrega .env da raiz do projeto (um nível acima de backend/)
@@ -106,7 +104,7 @@ ROOT_URLCONF = 'backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR.parent / 'frontend'],
+        'DIRS': [BASE_DIR / 'templates', BASE_DIR.parent / 'frontend'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -241,10 +239,6 @@ CORS_ALLOWED_ORIGINS = env_list(
 CORS_ALLOW_ALL_ORIGINS = DEBUG and not CORS_ALLOWED_ORIGINS
 CORS_ALLOW_CREDENTIALS = True
 
-# WebAuthn
-WEBAUTHN_RP_ID = os.environ.get('WEBAUTHN_RP_ID', 'localhost')
-WEBAUTHN_RP_NAME = os.environ.get('WEBAUTHN_RP_NAME', 'AURA')
-WEBAUTHN_RP_ORIGIN = os.environ.get('WEBAUTHN_RP_ORIGIN', 'http://localhost:8000')
 
 # Custom settings for geolocation radius (in meters)
 GEOFENCE_RADIUS_METERS = 100  # default radius; can be overridden per session if needed

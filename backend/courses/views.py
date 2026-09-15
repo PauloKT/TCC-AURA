@@ -1,7 +1,7 @@
 from math import isfinite
 
 from django.utils import timezone
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Instituicao, Materia, Turma, Aula, TurmaAluno
@@ -69,23 +69,19 @@ class InstituicaoViewSet(viewsets.ReadOnlyModelViewSet):
         instituicao.latitude = latitude
         instituicao.longitude = longitude
         instituicao.geocodificada_em = timezone.now()
-        instituicao.geocoding_source = request.data.get('source', 'confirmacao_manual')[:100]
+        instituicao.geocoding_source = serializers.CharField(max_length=100).run_validation(
+            request.data.get('source', 'confirmacao_manual'),
+        )
         instituicao.save(update_fields=[
             'latitude', 'longitude', 'geocodificada_em', 'geocoding_source',
         ])
         return Response(InstituicaoSerializer(instituicao).data)
 
 class IsProfessorOrReadOnly(permissions.BasePermission):
-    """
-    Allow read-only access to any user, but only professors can edit.
-    """
+    """Permite alterações apenas a professores."""
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return request.user and request.user.is_authenticated and request.user.role == 'professor'
-
-class IsProfessor(permissions.BasePermission):
-    def has_permission(self, request, view):
         return request.user and request.user.is_authenticated and request.user.role == 'professor'
 
 class MateriaViewSet(viewsets.ModelViewSet):
@@ -94,12 +90,10 @@ class MateriaViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsProfessorOrReadOnly]
 
     def get_queryset(self):
-        user = self.request.user
-        if user.role == 'professor':
-            # Professors can see all subjects (or only theirs)
-            return Materia.objects.all()
-        # Alunos can see all subjects (for enrollment)
-        return Materia.objects.all()
+        queryset = Materia.objects.select_related('professor')
+        if self.request.user.role == 'professor':
+            return queryset.filter(professor=self.request.user)
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(professor=self.request.user)
@@ -112,15 +106,18 @@ class TurmaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.role == 'professor':
-            return Turma.objects.filter(materia__professor=user)
+            queryset = Turma.objects.filter(materia__professor=user)
         elif user.role == 'aluno':
-            # Return turmas where the aluno is enrolled
-            return Turma.objects.filter(turmaaluno__aluno=user)
-        return Turma.objects.none()
+            queryset = Turma.objects.filter(alunos__aluno=user)
+        else:
+            return Turma.objects.none()
 
-    def perform_create(self, serializer):
-        # Ensure the materia belongs to the professor
-        serializer.save()
+        materia_id = self.request.query_params.get('materia')
+        if materia_id:
+            materia_id = serializers.IntegerField(min_value=1).run_validation(materia_id)
+            queryset = queryset.filter(materia_id=materia_id)
+
+        return queryset.select_related('materia').distinct()
 
 class AulaViewSet(viewsets.ModelViewSet):
     queryset = Aula.objects.all()
@@ -130,32 +127,28 @@ class AulaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.role == 'professor':
-            return Aula.objects.filter(turma__materia__professor=user)
+            queryset = Aula.objects.filter(turma__materia__professor=user)
         elif user.role == 'aluno':
-            return Aula.objects.filter(turma__turmaaluno__aluno=user)
-        return Aula.objects.none()
+            queryset = Aula.objects.filter(turma__alunos__aluno=user)
+        else:
+            return Aula.objects.none()
 
-    def perform_create(self, serializer):
-        serializer.save()
+        turma_id = self.request.query_params.get('turma')
+        if turma_id:
+            turma_id = serializers.IntegerField(min_value=1).run_validation(turma_id)
+            queryset = queryset.filter(turma_id=turma_id)
+
+        return queryset.select_related('turma').distinct()
 
 class TurmaAlunoViewSet(viewsets.ModelViewSet):
     queryset = TurmaAluno.objects.all()
     serializer_class = TurmaAlunoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsProfessorOrReadOnly]
 
     def get_queryset(self):
         user = self.request.user
         if user.role == 'professor':
-            # Professors can see enrollments in their turmas
-            return TurmaAluno.objects.filter(turma__materia__professor=user)
+            return TurmaAluno.objects.filter(turma__materia__professor=user).select_related('turma', 'aluno')
         elif user.role == 'aluno':
-            # Alunos see their own enrollments
-            return TurmaAluno.objects.filter(aluno=user)
+            return TurmaAluno.objects.filter(aluno=user).select_related('turma', 'aluno')
         return TurmaAluno.objects.none()
-
-    def perform_create(self, serializer):
-        # Ensure the aluno is the requesting user if role is aluno
-        if self.request.user.role == 'aluno':
-            serializer.save(aluno=self.request.user)
-        else:
-            serializer.save()

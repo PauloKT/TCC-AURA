@@ -1,5 +1,5 @@
 """
-Testes do app `attendance` — fluxo de presença, token dinâmico, WebAuthn.
+Testes de presença, token dinâmico e localização.
 """
 from datetime import timedelta
 from unittest.mock import patch
@@ -10,7 +10,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import CustomUser
 from attendance.models import (
-    SessaoChamada, Presenca, WebAuthnCredential, WebAuthnChallenge,
+    SessaoChamada, Presenca,
 )
 from attendance.geolocation import haversine_distance, is_within_radius
 from courses.models import Materia, Turma, TurmaAluno, Aula
@@ -59,15 +59,14 @@ class SessaoChamadaTests(TestCase):
         self.sessao.refresh_token()
         self.assertNotEqual(antigo, self.sessao.token_atual)
 
-    def test_aluno_matriculado_pode_consultar_token_da_sessao(self):
+    def test_aluno_matriculado_nao_obtem_token_sem_ler_qr(self):
         TurmaAluno.objects.create(turma=self.turma, aluno=self.aluno)
         client = APIClient()
         client.force_authenticate(user=self.aluno)
 
         response = client.get(f'/api/sessoes/{self.sessao.id}/token/')
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['professor_radius_meters'], 100)
+        self.assertEqual(response.status_code, 403)
 
     def test_aluno_nao_matriculado_nao_pode_consultar_token(self):
         client = APIClient()
@@ -75,7 +74,7 @@ class SessaoChamadaTests(TestCase):
 
         response = client.get(f'/api/sessoes/{self.sessao.id}/token/')
 
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 403)
 
 
 class PresencaTests(TestCase):
@@ -107,20 +106,18 @@ class PresencaTests(TestCase):
             professor_radius_meters=100,
         )
 
-    def test_presenca_valida_com_gps_ok_e_webauthn(self):
+    def test_presenca_valida_com_gps_ok(self):
         p = Presenca(
             sessao=self.sessao, aluno=self.aluno,
             latitude=-23.5505, longitude=-46.6333,
-            webauthn_verified=True,
         )
         p.save()
         self.assertTrue(p.valida)
 
-    def test_presenca_valida_sem_webauthn(self):
+    def test_presenca_valida_com_localizacao_institucional(self):
         p = Presenca(
             sessao=self.sessao, aluno=self.aluno,
             latitude=-23.5505, longitude=-46.6333,
-            webauthn_verified=False,
         )
         p.save()
         self.assertTrue(p.valida)
@@ -129,7 +126,6 @@ class PresencaTests(TestCase):
         p = Presenca(
             sessao=self.sessao, aluno=self.aluno,
             latitude=-23.0, longitude=-46.0,  # ~ 100km de distância
-            webauthn_verified=True,
         )
         p.save()
         self.assertFalse(p.valida)
@@ -138,7 +134,6 @@ class PresencaTests(TestCase):
         p1 = Presenca(
             sessao=self.sessao, aluno=self.aluno,
             latitude=-23.5505, longitude=-46.6333,
-            webauthn_verified=True,
         )
         p1.save()
         # Segunda tentativa não deve duplicar (unique_together)
@@ -147,7 +142,6 @@ class PresencaTests(TestCase):
             p2 = Presenca(
                 sessao=self.sessao, aluno=self.aluno,
                 latitude=-23.5505, longitude=-46.6333,
-                webauthn_verified=True,
             )
             p2.save()
 
@@ -209,9 +203,7 @@ class PresencaAPITests(TestCase):
             'longitude': -46.6333,
         }, format='json')
         self.assertEqual(resp.status_code, 201, resp.data)
-        # O fluxo ativo usa QR Code e geolocalização; a biometria é legada.
         self.assertTrue(resp.data['presenca']['valida'])
-        self.assertTrue(resp.data['presenca']['webauthn_verified'])
 
     def test_registrar_presenca_token_invalido(self):
         url = '/api/presenca/registrar/'
@@ -223,7 +215,7 @@ class PresencaAPITests(TestCase):
         }, format='json')
         self.assertEqual(resp.status_code, 400)
 
-    def test_registrar_presenca_fora_do_raio_nao_persiste(self):
+    def test_registrar_presenca_fora_do_raio_persiste_falta(self):
         url = '/api/presenca/registrar/'
         resp = self.client.post(url, data={
             'sessao_id': self.sessao.id,
@@ -232,8 +224,9 @@ class PresencaAPITests(TestCase):
             'longitude': -46.0,
         }, format='json')
 
-        self.assertEqual(resp.status_code, 400)
-        self.assertFalse(Presenca.objects.filter(
+        self.assertEqual(resp.status_code, 201)
+        self.assertFalse(resp.data['presenca']['valida'])
+        self.assertTrue(Presenca.objects.filter(
             sessao=self.sessao,
             aluno=self.aluno,
         ).exists())
@@ -246,6 +239,8 @@ class PresencaAPITests(TestCase):
         }, format='json')
 
         self.assertEqual(retry.status_code, 201, retry.data)
+        self.assertFalse(retry.data['presenca']['valida'])
+        self.assertEqual(Presenca.objects.filter(sessao=self.sessao, aluno=self.aluno).count(), 1)
 
     def test_registrar_presenca_rejeita_latitude_invalida(self):
         response = self.client.post('/api/presenca/registrar/', data={
@@ -256,34 +251,3 @@ class PresencaAPITests(TestCase):
         }, format='json')
 
         self.assertEqual(response.status_code, 400)
-
-
-class WebAuthnChallengeTests(TestCase):
-    def setUp(self):
-        self.aluno = CustomUser.objects.create_user(
-            username='aluno', password='x', role='aluno',
-            email='aluno@gmail.com', matricula='M1',
-        )
-
-    def test_challenge_criado_e_unico(self):
-        c1 = WebAuthnChallenge.criar(self.aluno, WebAuthnChallenge.TIPO_AUTENTICACAO)
-        c2 = WebAuthnChallenge.criar(self.aluno, WebAuthnChallenge.TIPO_AUTENTICACAO)
-        self.assertNotEqual(c1.challenge, c2.challenge)
-
-    def test_challenge_expirado(self):
-        from django.utils import timezone
-        c = WebAuthnChallenge.criar(self.aluno, WebAuthnChallenge.TIPO_REGISTRO)
-        c.criado_em = timezone.now() - timedelta(minutes=10)
-        c.save(update_fields=['criado_em'])
-        self.assertTrue(c.is_expired())
-
-    def test_purge_remove_apenas_expirados(self):
-        from django.utils import timezone
-        novo = WebAuthnChallenge.criar(self.aluno, WebAuthnChallenge.TIPO_AUTENTICACAO)
-        velho = WebAuthnChallenge.criar(self.aluno, WebAuthnChallenge.TIPO_AUTENTICACAO)
-        velho.criado_em = timezone.now() - timedelta(minutes=10)
-        velho.save(update_fields=['criado_em'])
-
-        WebAuthnChallenge.purge_expired()
-        self.assertTrue(WebAuthnChallenge.objects.filter(pk=novo.pk).exists())
-        self.assertFalse(WebAuthnChallenge.objects.filter(pk=velho.pk).exists())

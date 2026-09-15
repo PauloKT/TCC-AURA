@@ -1,168 +1,108 @@
 document.addEventListener('DOMContentLoaded', function() {
-  // DOM Elements
-  const loadingDiv = document.getElementById('loading');
-  const contentDiv = document.getElementById('content');
-  const turmasList = document.getElementById('turmas-list');
+  const loading = document.getElementById('loading');
+  const content = document.getElementById('content');
+  const list = document.getElementById('turmas-list');
+  const calls = document.getElementById('calls-list');
+  const callsStatus = document.getElementById('calls-status');
+  const joinForm = document.getElementById('join-form');
+  const inviteInput = document.getElementById('invite-code');
+  const joinMessage = document.getElementById('join-message');
+  let polling = null;
+  let busy = false;
+  let stopped = false;
+  let previousCalls = '';
 
-  // API Base URL
-  const API_BASE = '/api/';
-
-  // Check authentication on load
-  checkAuth();
-
-  async function checkAuth() {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      window.location.href = 'login.html';
-      return;
-    }
-
-    try {
-      const base64Url = token.split('.')[1];
-      let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      // Pad with = to make length a multiple of 4
-      while (base64.length % 4) {
-        base64 += '=';
-      }
-      const payload = JSON.parse(atob(base64));
-      if (payload.role !== 'aluno') {
-        window.location.href = 'login.html';
-        return;
-      }
-
-      // Hide loading, show content
-      loadingDiv.style.display = 'none';
-      contentDiv.style.display = 'block';
-
-      // Fetch student data
-      fetchStudentData();
-    } catch (e) {
-      window.location.href = 'login.html';
-    }
+  if (!localStorage.getItem('access_token') && !localStorage.getItem('refresh_token')) {
+    Aura.login();
+    return;
   }
+  inviteInput.value = new URLSearchParams(window.location.search).get('convite') || '';
 
-  async function fetchStudentData() {
-    try {
-      // Get user ID from token
-      const token = localStorage.getItem('access_token');
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const userId = payload.user_id;
-
-      // Get enrollments for this student
-      const response = await fetch(API_BASE + `turma-aluno/?aluno=${userId}`, {
-        headers: {
-          'Authorization': 'Bearer ' + token
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch enrollments');
-
-      const enrollments = await response.json();
-      const turmaIds = enrollments.map(enrollment => enrollment.turma);
-
-      if (turmaIds.length === 0) {
-        // No enrollments
-        turmasList.innerHTML = '<p class="empty-message">Você não está matriculado em nenhuma turma.</p>';
-        return;
-      }
-
-      // Fetch details for each turma
-      const turmasDetails = await Promise.all(
-        turmaIds.map(id =>
-          fetch(API_BASE + `turmas/${id}/`, {
-            headers: {
-              'Authorization': 'Bearer ' + token
-            }
-          }).then(res => {
-            if (!res.ok) throw new Error(`Failed to fetch turma ${id}`);
-            return res.json();
-          })
-        )
-      );
-
-      // Fetch frequencies for each turma
-      const freqPromises = turmaIds.map(id =>
-        fetch(API_BASE + `aluno/minha-frequencia/?turma=${id}`, {
-          headers: {
-            'Authorization': 'Bearer ' + token
-          }
-        }).then(res => {
-          if (!res.ok) {
-            // If no frequency record, return default
-            return { percentual: 0, situacao: 'sem_dados' };
-          }
-          return res.json();
-        })
-      );
-
-      const freqResults = await Promise.all(freqPromises);
-
-      // Render turmas
-      renderTurmas(turmasDetails, freqResults);
-    } catch (error) {
-      console.error('Erro ao carregar dados do aluno:', error);
-      turmasList.innerHTML = '<p class="error-message">Erro ao carregar dados. Por favor, tente novamente.</p>';
-    }
-  }
-
-  function renderTurmas(turmas, frequencias) {
-    // Clear the list
-    turmasList.innerHTML = '';
-
-    // Create a map of frequencies by turma ID for easy lookup
-    const freqMap = {};
-    frequencias.forEach((freq, index) => {
-      if (turmas[index]) {
-        freqMap[turmas[index].id] = freq;
-      }
-    });
-
-    // If no frequencies were fetched (shouldn't happen, but just in case)
-    if (Object.keys(freqMap).length === 0) {
-      turmas.forEach(turma => {
-        freqMap[turma.id] = { percentual: 0, situacao: 'sem_dados' };
-      });
-    }
-
-    turmas.forEach((turma, index) => {
-      const freq = freqMap[turma.id] || { percentual: 0, situacao: 'sem_dados' };
-
-      // Determine frequency class and text
-      let freqClass = '';
-      let freqText = '';
-      switch (freq.situacao) {
-        case 'aprovado':
-          freqClass = 'aprovado';
-          freqText = `${freq.percentual}% (Aprovado)`;
-          break;
-        case 'reprovado':
-          freqClass = 'reprovado';
-          freqText = `${freq.percentual}% (Reprovado)`;
-          break;
-        default:
-          freqClass = 'sem_dados';
-          freqText = 'Sem dados';
-      }
-
+  async function loadGroups() {
+    const { turmas } = await Aura.json('/api/aluno/turmas/');
+    list.replaceChildren();
+    if (!turmas.length) list.textContent = 'Você não está matriculado em nenhuma turma.';
+    for (const turma of turmas) {
       const card = document.createElement('div');
       card.className = 'turma-card';
-
-      card.innerHTML = `
-        <div class="turma-header">
-          <div class="turma-info">
-            <div class="turma-name">${turma.nome}</div>
-            <div class="turma-subject">${turma.materia.nome}</div>
-            <div class="turma-period">${turma.semestre}/${turma.ano}</div>
-          </div>
-        </div>
-        <div class="frequencia-info">
-          <div class="frequencia-label">Frequência:</div>
-          <div class="frequencia-value ${freqClass}">${freqText}</div>
-          ${freq.situacao === 'reprovado' ? '<span class="atencao"> - Atenção!</span>' : ''}
-        </div>
-      `;
-
-      turmasList.appendChild(card);
-    });
+      const title = document.createElement('h3');
+      title.textContent = turma.nome;
+      const subject = document.createElement('p');
+      subject.textContent = `${turma.materia.nome} — ${turma.semestre}/${turma.ano}`;
+      const frequency = document.createElement('p');
+      const labels = { aprovado: 'Aprovado', reprovado: 'Reprovado' };
+      const label = labels[turma.situacao];
+      frequency.className = 'frequencia-value ' + (label ? turma.situacao : 'sem_dados');
+      frequency.textContent = label ? `Frequência: ${turma.percentual}% (${label})` : 'Frequência: sem dados';
+      card.append(title, subject, frequency);
+      list.appendChild(card);
+    }
   }
+
+  async function checkCalls() {
+    if (busy || stopped || document.hidden) return;
+    busy = true;
+    try {
+      const { chamadas } = await Aura.json('/api/sessoes/ativas/');
+      const signature = JSON.stringify(chamadas);
+      if (signature !== previousCalls) {
+        calls.replaceChildren();
+        for (const chamada of chamadas) {
+          const notice = document.createElement('div');
+          notice.className = 'turma-card';
+          const title = document.createElement('h3');
+          title.textContent = `Chamada iniciada: ${chamada.materia}`;
+          const detail = document.createElement('p');
+          detail.textContent = `${chamada.turma} — ${chamada.aula}. Leia o QR Code exibido pelo professor para confirmar sua presença.`;
+          notice.append(title, detail);
+          calls.appendChild(notice);
+        }
+        previousCalls = signature;
+      }
+      callsStatus.textContent = chamadas.length ? 'Há chamada aguardando sua presença.' : 'Nenhuma chamada pendente. Os avisos são atualizados automaticamente.';
+    } catch (error) {
+      callsStatus.textContent = 'Não foi possível atualizar os avisos. Tentaremos novamente.';
+    } finally {
+      busy = false;
+      clearTimeout(polling);
+      if (!stopped) polling = setTimeout(checkCalls, 5000);
+    }
+  }
+
+  joinForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = document.getElementById('join-btn');
+    button.disabled = true;
+    try {
+      let code = inviteInput.value.trim();
+      if (/^https?:\/\//i.test(code)) code = new URL(code).searchParams.get('convite') || '';
+      const invitation = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(code)
+        ? { link_acesso: code } : { codigo_acesso: code.toUpperCase() };
+      const data = await Aura.json('/api/aluno/entrar-turma/', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(invitation)
+      });
+      joinMessage.textContent = data.detail;
+      inviteInput.value = '';
+      await loadGroups();
+      await checkCalls();
+    } catch (error) {
+      joinMessage.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { clearTimeout(polling); checkCalls(); }
+  });
+  window.addEventListener('pagehide', () => { stopped = true; clearTimeout(polling); });
+  window.addEventListener('pageshow', () => { if (stopped) { stopped = false; checkCalls(); } });
+
+  loadGroups().then(checkCalls).catch(error => {
+    list.textContent = error.message;
+  }).finally(() => {
+    loading.style.display = 'none';
+    content.style.display = 'block';
+  });
 });

@@ -31,7 +31,7 @@ class SessaoChamada(models.Model):
     ativa = models.BooleanField(default=True)
     iniciada_em = models.DateTimeField(default=timezone.now)
     encerrada_em = models.DateTimeField(null=True, blank=True)
-    # Store professor's location at session start for verification
+    # Localização usada na abertura da sessão.
     professor_latitude = models.FloatField(
         validators=[MinValueValidator(-90), MaxValueValidator(90)],
     )
@@ -77,7 +77,7 @@ class Presenca(models.Model):
     sessao = models.ForeignKey(SessaoChamada, on_delete=models.CASCADE, related_name='presencas')
     aluno = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='presencas')
     registrada_em = models.DateTimeField(auto_now_add=True)
-    # Student's location at the moment of check-in
+    # Localização do aluno no registro.
     latitude = models.FloatField(
         validators=[MinValueValidator(-90), MaxValueValidator(90)],
     )
@@ -85,8 +85,6 @@ class Presenca(models.Model):
         validators=[MinValueValidator(-180), MaxValueValidator(180)],
     )
     localizacao_capturada_em = models.DateTimeField(auto_now_add=True)
-    # 3ª camada de segurança: biometria via WebAuthn
-    webauthn_verified = models.BooleanField(default=False)
     valida = models.BooleanField(default=False)
 
     class Meta:
@@ -95,7 +93,6 @@ class Presenca(models.Model):
             models.Index(fields=['valida'], name='idx_presenca_valida'),
             models.Index(fields=['aluno', 'registrada_em'], name='idx_pres_aluno_reg'),
             models.Index(fields=['sessao'], name='idx_presenca_sessao'),
-            # Composite index for optimizing the frequency query
             models.Index(fields=['sessao', 'aluno', 'valida'], name='idx_pres_ses_aln_val'),
         ]
 
@@ -114,104 +111,9 @@ class Presenca(models.Model):
             self.longitude,
             self.sessao.professor_radius_meters
         )
-        # A biometria não faz parte do fluxo ativo; QR Code e geolocalização validam a presença.
         self.valida = gps_ok
         self.localizacao_capturada_em = timezone.now()
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Presença {self.aluno.username} na sessão {self.sessao_id} - {'Válida' if self.valida else 'Inválida'}"
-
-
-class WebAuthnCredential(models.Model):
-    """
-    Armazena a credencial WebAuthn registrada para um aluno.
-    Os dados biométricos (impressão digital, Face ID) nunca saem do dispositivo:
-    apenas a chave pública e os metadados do autenticador são persistidos.
-    """
-    aluno = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='webauthn_credentials',
-        limit_choices_to={'role': 'aluno'},
-    )
-    # credential_id retornado pelo autenticador (base64url, sem padding)
-    credential_id = models.CharField(max_length=512, unique=True)
-    # chave pública (DER ou PEM, base64)
-    public_key = models.TextField()
-    # Algoritmo COSE (-7 ES256, -257 RS256)
-    public_key_alg = models.IntegerField(default=-7)
-    # contador de assinatura (proteção contra clonagem)
-    sign_count = models.PositiveIntegerField(default=0)
-    # Nome amigável para o dispositivo (ex.: "iPhone do aluno")
-    nickname = models.CharField(max_length=80, blank=True, default='')
-    criada_em = models.DateTimeField(auto_now_add=True)
-    ultimo_uso_em = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['aluno']),
-        ]
-
-    def __str__(self):
-        return f"WebAuthn[{self.aluno.username}: {self.nickname or self.credential_id[:16]}]"
-
-
-class WebAuthnChallenge(models.Model):
-    """
-    Armazena challenges WebAuthn em curso (registro ou autenticação).
-    Challenge expira em 5 minutos.
-    """
-    TIPO_REGISTRO = 'register'
-    TIPO_AUTENTICACAO = 'authenticate'
-    TIPOS = (
-        (TIPO_REGISTRO, 'Registro'),
-        (TIPO_AUTENTICACAO, 'Autenticação'),
-    )
-
-    # Janela de validade (5 min) para mitigar replay.
-    TTL_SECONDS = 5 * 60
-
-    aluno = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='webauthn_challenges',
-    )
-    challenge = models.CharField(max_length=128, unique=True)
-    tipo = models.CharField(max_length=20, choices=TIPOS)
-    criado_em = models.DateTimeField(auto_now_add=True)
-    consumido = models.BooleanField(default=False)
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['challenge']),
-            models.Index(fields=['aluno', 'tipo']),
-            models.Index(fields=['criado_em']),
-        ]
-
-    @classmethod
-    def criar(cls, aluno, tipo):
-        """Gera e persiste um challenge novo."""
-        import secrets
-        ch = secrets.token_urlsafe(64)
-        return cls.objects.create(aluno=aluno, challenge=ch, tipo=tipo)
-
-    def consumir(self):
-        """Marca o challenge como usado (one-shot)."""
-        self.consumido = True
-        self.save(update_fields=['consumido'])
-
-    def is_expired(self) -> bool:
-        from django.utils import timezone
-        return (timezone.now() - self.criado_em).total_seconds() > self.TTL_SECONDS
-
-    @classmethod
-    def purge_expired(cls):
-        """Remove challenges vencidos. Pode ser invocado por management command."""
-        from django.utils import timezone
-        from datetime import timedelta
-        limite = timezone.now() - timedelta(seconds=cls.TTL_SECONDS)
-        return cls.objects.filter(criado_em__lt=limite).delete()
-
-    def __str__(self):
-        return f"Challenge[{self.aluno.username}: {self.tipo}]"

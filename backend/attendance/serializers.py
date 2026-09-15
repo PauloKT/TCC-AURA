@@ -1,10 +1,19 @@
 from rest_framework import serializers
 from django.utils import timezone
+from django.core import signing
+from courses.models import TurmaAluno
 from .models import SessaoChamada, Presenca
-from .geolocation import is_within_radius, validate_coordinates
+from .geolocation import validate_coordinates
 
 
 class SessaoChamadaSerializer(serializers.ModelSerializer):
+    def validate_aula(self, aula):
+        if aula.turma.materia.professor_id != self.context['request'].user.id:
+            raise serializers.ValidationError('Selecione uma aula sua.')
+        if self.instance and aula.pk != self.instance.aula_id:
+            raise serializers.ValidationError('A aula de uma sessão não pode ser alterada.')
+        return aula
+
     class Meta:
         model = SessaoChamada
         fields = ['id', 'aula', 'token_atual', 'token_expira_em', 'ativa', 'iniciada_em', 'encerrada_em',
@@ -32,10 +41,10 @@ class PresencaSerializer(serializers.ModelSerializer):
         model = Presenca
         fields = ['id', 'sessao', 'aluno', 'aluno_username', 'sessao_aula_titulo',
                   'registrada_em', 'latitude', 'longitude', 'localizacao_capturada_em',
-                  'webauthn_verified', 'valida']
+                  'valida']
         read_only_fields = ['id', 'aluno', 'aluno_username', 'sessao_aula_titulo',
                             'registrada_em', 'localizacao_capturada_em',
-                            'webauthn_verified', 'valida']
+                            'valida']
 
 
 class PresencaCreateSerializer(serializers.Serializer):
@@ -44,10 +53,11 @@ class PresencaCreateSerializer(serializers.Serializer):
             - sessao_id e token batem
             - sessão está ativa e não expirada
             - token (URL) corresponde ao token atual da sessão
-            - localização está dentro do raio permitido
+            - localização determina presença ou falta ao salvar
     """
     sessao_id = serializers.IntegerField()
-    token = serializers.CharField()
+    token = serializers.CharField(required=False)
+    comprovante = serializers.CharField(required=False, max_length=1000)
     latitude = serializers.FloatField()
     longitude = serializers.FloatField()
 
@@ -61,28 +71,26 @@ class PresencaCreateSerializer(serializers.Serializer):
         if not sessao:
             raise serializers.ValidationError({'sessao_id': 'Sessão não encontrada.'})
 
+        if not TurmaAluno.objects.filter(
+            turma_id=sessao.aula.turma_id, aluno=self.context['request'].user,
+        ).exists():
+            raise serializers.ValidationError({'detail': 'Você não está matriculado nesta turma.'})
+
         if not sessao.ativa:
             raise serializers.ValidationError({'detail': 'A sessão de chamada já foi encerrada.'})
 
-        if not sessao.is_token_valid():
-            raise serializers.ValidationError({'detail': 'O QR Code expirou. Solicite um novo ao professor.'})
-
-        if sessao.token_atual != attrs['token']:
-            raise serializers.ValidationError({'detail': 'Token inválido. Pode ter expirado; escaneie o QR Code novamente.'})
+        if attrs.get('comprovante'):
+            try:
+                leitura = signing.loads(attrs['comprovante'], salt='attendance.scan', max_age=120)
+            except signing.BadSignature:
+                raise serializers.ValidationError({'detail': 'Tempo para confirmar esgotado. Leia o QR Code novamente.'})
+            if leitura != {'sessao': sessao.pk, 'aluno': self.context['request'].user.pk}:
+                raise serializers.ValidationError({'detail': 'Comprovante de leitura inválido.'})
+        elif not sessao.is_token_valid() or sessao.token_atual != attrs.get('token'):
+            raise serializers.ValidationError({'detail': 'QR Code inválido ou expirado. Leia o QR Code atual.'})
 
         if sessao.professor_latitude is None or sessao.professor_longitude is None:
             raise serializers.ValidationError({'detail': 'A sessão não possui localização institucional válida.'})
-
-        if not is_within_radius(
-            sessao.professor_latitude,
-            sessao.professor_longitude,
-            attrs['latitude'],
-            attrs['longitude'],
-            sessao.professor_radius_meters,
-        ):
-            raise serializers.ValidationError({
-                'detail': 'Você está fora do raio permitido para registrar presença.'
-            })
 
         attrs['sessao'] = sessao
         return attrs
@@ -91,18 +99,12 @@ class PresencaCreateSerializer(serializers.Serializer):
         aluno = self.context['request'].user
         sessao = validated_data['sessao']
 
-        # Já existe presença? Retorna a existente (idempotência)
-        existente = Presenca.objects.filter(sessao=sessao, aluno=aluno).first()
-        if existente:
-            return existente
-
-        presenca = Presenca(
+        presenca, _ = Presenca.objects.get_or_create(
             sessao=sessao,
             aluno=aluno,
-            latitude=validated_data['latitude'],
-            longitude=validated_data['longitude'],
-            # Mantido como legado para compatibilidade com registros antigos.
-            webauthn_verified=True,
+            defaults={
+                'latitude': validated_data['latitude'],
+                'longitude': validated_data['longitude'],
+            },
         )
-        presenca.save()  # save() do model recalcula .valida com base em GPS
         return presenca

@@ -8,8 +8,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const institutionSelect = document.getElementById('instituicao');
 
   loadInstitutions();
-
-  // Toggle fields based on role selection
   roleSelect.addEventListener('change', function() {
     if (this.value === 'aluno') {
       matriculaGroup.style.display = 'block';
@@ -19,8 +17,6 @@ document.addEventListener('DOMContentLoaded', function() {
       institutionGroup.style.display = 'block';
     }
   });
-
-  // Initialize based on default value
   if (roleSelect.value === 'aluno') {
     matriculaGroup.style.display = 'block';
     institutionGroup.style.display = 'none';
@@ -31,14 +27,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
   form.addEventListener('submit', async function(e) {
     e.preventDefault();
-
-    // Clear previous messages
     errorMessage.classList.remove('show');
     errorMessage.textContent = '';
     successMessage.classList.remove('show');
     successMessage.textContent = '';
-
-    // Get form values
     const formData = new FormData(form);
     const username = formData.get('username').trim();
     const email = formData.get('email').trim();
@@ -51,8 +43,6 @@ document.addEventListener('DOMContentLoaded', function() {
         .map(option => Number(option.value))
         .filter(Boolean)
       : undefined;
-
-    // Basic validation
     if (!username) {
       showError('Usuário é obrigatório');
       return;
@@ -82,8 +72,6 @@ document.addEventListener('DOMContentLoaded', function() {
       showError('Selecione ao menos uma instituição');
       return;
     }
-
-    // Prepare data for API
     const data = {
       username: username,
       email: email,
@@ -121,7 +109,6 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       showSuccess('Cadastro realizado com sucesso! Faça login.');
-      // Redirect to login after 2 seconds
       setTimeout(() => {
         window.location.href = 'login.html';
       }, 2000);

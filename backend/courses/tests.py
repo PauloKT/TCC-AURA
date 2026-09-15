@@ -95,6 +95,24 @@ class TurmaTests(TestCase):
             nome='Turma A', materia=self.materia, semestre='2024.1', ano=2024,
         )
 
+    def test_api_de_turmas_respeita_filtro_por_materia(self):
+        materia_2 = Materia.objects.create(
+            nome='Banco de Dados', codigo='BD202', carga_horaria=60,
+            frequencia_minima=75, professor=self.prof,
+        )
+        turma_2 = Turma.objects.create(
+            nome='Turma B', materia=materia_2, semestre='2024.2', ano=2024,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.prof)
+
+        response = client.get(f'/api/turmas/?materia={self.materia.id}')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item['id'] for item in response.data], [self.turma.id])
+        self.assertNotIn(turma_2.id, [item['id'] for item in response.data])
+
     def test_aluno_pode_entrar(self):
         ta, created = TurmaAluno.objects.get_or_create(turma=self.turma, aluno=self.aluno)
         self.assertTrue(created)

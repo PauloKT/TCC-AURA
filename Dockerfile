@@ -22,7 +22,7 @@ COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 
 # Garante que collectstatic rode durante o build.
-RUN cd backend && SECRET_KEY=build-key DEBUG=False python manage.py collectstatic --noinput || true
+RUN cd backend && SECRET_KEY=build-key DEBUG=False python manage.py collectstatic --noinput
 
 EXPOSE 8000
 

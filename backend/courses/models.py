@@ -1,6 +1,11 @@
 from django.db import models
 from django.conf import settings
 import uuid
+import secrets
+
+
+def gerar_codigo_acesso():
+    return ''.join(secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ23456789') for _ in range(8))
 
 
 class Instituicao(models.Model):
@@ -67,6 +72,7 @@ class Turma(models.Model):
     semestre = models.CharField(max_length=20)  # e.g., "2024.1"
     ano = models.IntegerField()
     link_acesso = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    codigo_acesso = models.CharField(max_length=8, default=gerar_codigo_acesso, unique=True, editable=False)
     ativa = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

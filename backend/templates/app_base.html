@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block layout %}
+<div class="app-layout">
+  {% include 'includes/sidebar.html' %}
+  <div class="app-body">
+    <header class="topbar">
+      <button class="icon-button mobile-menu" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">☰</button>
+      <span class="workspace-label">{% if area == 'professor' %}Espaço do professor{% else %}Espaço do aluno{% endif %}</span>
+      <div class="topbar-right"><span id="today-label"></span><a href="{% if area == 'professor' %}/professor.html{% else %}/aluno.html{% endif %}#perfil" class="avatar" id="user-avatar" aria-label="Meu perfil">A</a></div>
+    </header>
+    <main id="main" class="main-content" tabindex="-1">{% block content %}{% endblock %}</main>
+    <footer class="app-footer">AURA <span>Presença que acompanha o aprendizado.</span></footer>
+  </div>
+</div>
+{% endblock %}

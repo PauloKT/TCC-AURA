@@ -4,11 +4,13 @@
 
 O AURA é um sistema web acadêmico para controle de frequência. O backend fornece uma API Django REST Framework e o frontend atual utiliza HTML, CSS e JavaScript puro.
 
-O sistema foi organizado para validar a presença por três sinais:
+O fluxo ativo valida a presença por:
 
 1. QR Code dinâmico associado a uma sessão de aula.
 2. Localização GPS do aluno em relação ao local registrado pelo professor.
-3. Verificação WebAuthn, quando concluída, por meio de um token temporário de comprovação.
+3. Matrícula do aluno na turma.
+
+A biometria foi removida. O registro exige login, matrícula, QR Code válido e localização dentro do raio institucional.
 
 A geolocalização é centralizada no backend. O navegador coleta a posição e a
 envia à API; qualquer cálculo visual no frontend não é usado para autorizar a
@@ -25,7 +27,7 @@ Django URLs (/api/)
   |
   +-- accounts    -> usuários, cadastro, login JWT e frequência do aluno
   +-- courses     -> matérias, turmas, aulas e matrículas
-  +-- attendance  -> sessões, QR Code, presença, GPS e WebAuthn
+  +-- attendance  -> sessões, QR Code, presença e GPS
   |
   v
 SQLite (desenvolvimento) ou PostgreSQL (Docker)
@@ -62,12 +64,10 @@ O projeto não possui mais uma segunda implementação React. A entrada web em d
 
 ### `backend/attendance/`
 
-- `models.py`: sessão de chamada, presença, credencial WebAuthn e challenge WebAuthn.
+- `models.py`: sessão de chamada e presença.
 - `serializers.py`: tokens da sessão e validação do registro de presença.
 - `views.py`: criação, consulta, renovação e encerramento de sessões; registro de presença.
-- `webauthn_views.py`: registro e autenticação de credenciais WebAuthn.
-- `management/commands/purge_webauthn_challenges.py`: limpeza de challenges expirados.
-- `tests.py`: tokens, GPS, idempotência, API de presença e challenges.
+- `tests.py`: tokens, GPS, idempotência, API de presença.
 
 ### `frontend/`
 
@@ -106,32 +106,23 @@ A renovação é feita em `POST /api/token/refresh/` com o refresh token. Essa r
 
 ### Aluno
 
-1. Abre o endereço do QR Code.
-2. Consulta os dados públicos da sessão autenticada.
-3. Obtém latitude e longitude pelo navegador.
-4. Envia sessão, token e coordenadas para `POST /api/presenca/registrar/`.
-5. O backend valida limites das coordenadas, sessão ativa, token atual e distância dentro do raio.
-6. Se estiver fora do raio, a API responde `400` e não persiste a tentativa.
-7. A presença é única por aluno e sessão, garantindo idempotência.
+1. Faz login e entra na turma pelo convite compartilhado pelo professor.
+2. Mantém o painel aberto para receber avisos de chamadas pendentes, consultados a cada cinco segundos.
+3. Lê o QR Code com a câmera do celular, abrindo a confirmação no navegador.
+4. A página valida o QR em `POST /api/sessoes/{id}/preparar/`. O servidor exige matrícula e devolve um comprovante assinado, vinculado ao aluno e à sessão, com validade de dois minutos.
+5. O navegador pede permissão de localização e envia automaticamente o comprovante e as coordenadas para `POST /api/presenca/registrar/`.
+6. O backend exige sessão aberta, comprovante válido e GPS dentro do raio. A presença é única por aluno e sessão.
+7. A confirmação aparece na tela e a chamada deixa de constar como pendente para aquele aluno.
+
+Os avisos funcionam com o painel aberto. Não há push em segundo plano. Os tokens do QR são consultados apenas pelo professor; a API de avisos não os fornece.
 
 ### Cálculo de distância
 
 `attendance/geolocation.py` aplica primeiro uma caixa delimitadora aproximada e só calcula a distância completa de Haversine quando necessário. A distância é calculada em metros usando o raio médio da Terra de 6.371.000 metros. Latitude, longitude e raio são validados antes do cálculo.
 
-## 6. WebAuthn
+## 6. Remoção de biometria
 
-O backend implementa quatro endpoints:
-
-- `POST /api/webauthn/register/begin/`
-- `POST /api/webauthn/register/complete/`
-- `POST /api/webauthn/authenticate/begin/`
-- `POST /api/webauthn/authenticate/complete/`
-
-A biometria não é armazenada no servidor. O sistema persiste a credencial pública, metadados e contador de assinatura. O endpoint de autenticação emite um JWT curto com `webauthn_verified=True`.
-
-### Pendência de integração
-
-O frontend tradicional atual ainda envia QR Code e GPS em `confirmar-presenca.js`, mas não executa o fluxo `navigator.credentials.get()` nem envia `webauthn_token`. Portanto, a integração completa da terceira camada no navegador ainda precisa ser concluída antes de afirmar que o fluxo de presença biométrica está operacional de ponta a ponta.
+As rotas, dependências e modelos WebAuthn foram removidos. A migration 0005 remove as tabelas antigas e o campo de verificação, preservando alunos, turmas, sessões e presenças. Faça backup antes de aplicar migrations a um banco existente.
 
 ## 7. Rotas principais
 
@@ -162,30 +153,21 @@ O frontend tradicional atual ainda envia QR Code e GPS em `confirmar-presenca.js
 - Um aluno só registra presença pelo endpoint protegido para alunos.
 - A matrícula possui unicidade por turma e aluno.
 - A presença possui unicidade por sessão e aluno.
-- Challenges WebAuthn são individuais, expiram em cinco minutos e podem ser consumidos uma única vez.
 - Segredos e configurações de produção devem ser fornecidos por variáveis de ambiente.
 - A AEMS é a instituição inicial de teste, com o endereço informado e raio inicial de 100 metros.
 - A coordenada da AEMS precisa ser confirmada antes do teste prático, pois os serviços públicos consultados não retornaram um resultado inequívoco.
 
 ## 9. Testes
 
-No ambiente virtual do projeto:
-
-```powershell
-$python = 'd:\TCC-AURA\.venv-1\Scripts\python.exe'
-Push-Location backend
-& $python manage.py check
-& $python -m pytest --import-mode=importlib -q
-Pop-Location
-```
-
-O parâmetro `--import-mode=importlib` é necessário porque os apps possuem arquivos `tests.py` com o mesmo nome. A última execução geral validou 35 testes aprovados antes da alteração de instituições; os testes específicos de cadastro institucional validaram 21 casos.
+Na raiz do projeto, execute os testes JavaScript com `node --test frontend/regressions.test.cjs`. No diretório `backend`, execute `python -m pytest -q -p no:cacheprovider` e `python manage.py check`. Os apps possuem `__init__.py` para permitir a descoberta dos testes.
 
 ## 10. Limitações conhecidas
 
-- Não há validação automatizada do JavaScript no repositório porque Node.js não faz parte do ambiente atual.
-- SQLite é adequado para desenvolvimento; produção deve usar PostgreSQL conforme o `docker-compose.yml`.
-- O fluxo WebAuthn precisa ser conectado ao frontend tradicional.
+- O ambiente verificado usa Django 4.2 com Python 3.14 e apresentou erro de compatibilidade na renderização de páginas de erro. Antes da publicação, atualizar o Django para uma versão suportada e testar com a versão de Python escolhida.
+- As páginas do frontend são servidas apenas com `DEBUG=True`. A publicação exige configurar páginas e arquivos estáticos para `DEBUG=False`, sem usar o servidor de desenvolvimento.
+
+- Os testes JavaScript simulam o navegador. O fluxo completo ainda deve ser validado em celulares reais.
+- SQLite é adequado para desenvolvimento e demonstração pequena em disco persistente. Para chamadas simultâneas em uso real, prefira PostgreSQL. Docker é opcional e não determina a escolha do banco.
 - A tela de cadastro lista instituições, mas desabilita instituições sem coordenada confirmada.
 - A documentação de API OpenAPI está disponível pelas rotas `/api/schema/` e `/api/schema/swagger-ui/` durante a execução do Django.
 

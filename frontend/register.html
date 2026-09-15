@@ -1,82 +1,11 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TCC AURA - Registro</title>
-    <link rel="stylesheet" href="register.css" />
-  </head>
-  <body>
-    <div class="container">
-      <h2>Registro</h2>
-      <div id="error-message" class="error"></div>
-      <div id="success-message" class="success"></div>
-      <form id="register-form">
-        <div class="form-group">
-          <label for="username">Usuário:</label>
-          <input
-            type="text"
-            id="username"
-            name="username"
-            required
-          />
-        </div>
-        <div class="form-group">
-          <label for="email">E-mail:</label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            required
-          />
-        </div>
-        <div class="form-group">
-          <label for="password">Senha:</label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            required
-          />
-        </div>
-        <div class="form-group">
-          <label for="password2">Confirmar Senha:</label>
-          <input
-            type="password"
-            id="password2"
-            name="password2"
-            required
-          />
-        </div>
-        <div class="form-group">
-          <label for="role">Tipo de Usuário:</label>
-          <select id="role" name="role">
-            <option value="aluno">Aluno</option>
-            <option value="professor">Professor</option>
-          </select>
-        </div>
-        <div class="form-group" id="matricula-group">
-          <label for="matricula">Matrícula:</label>
-          <input
-            type="text"
-            id="matricula"
-            name="matricula"
-          />
-        </div>
-        <div class="form-group" id="institution-group" style="display: none;">
-          <label for="instituicao">Instituição:</label>
-          <select id="instituicao" name="instituicoes" multiple size="3">
-            <option value="">Carregando instituições...</option>
-          </select>
-          <small id="institution-help">Selecione todas as instituições onde você trabalha. A primeira será usada como referência da localização.</small>
-        </div>
-        <button type="submit">Registrar</button>
-      </form>
-      <p>
-        Já tem uma conta? <a href="login.html">Faça login</a>
-      </p>
-    </div>
-
-    <script src="register.js"></script>
-  </body>
-</html>
+{% extends 'auth_base.html' %}{% load static %}
+{% block title %}Criar conta · AURA{% endblock %}
+{% block auth_content %}<h2>Seu espaço na sala de aula.</h2><p>Crie sua conta. Os campos com * são obrigatórios.</p><div id="error-message" class="error" role="alert"></div><div id="success-message" class="success" role="status"></div><form id="register-form"><div class="form-grid">
+<div class="field full"><label for="role">Como você vai usar o AURA? *</label><select id="role" name="role"><option value="aluno">Sou aluno</option><option value="professor">Sou professor</option></select></div>
+<div class="field full"><label for="username">Nome de usuário *</label><input id="username" name="username" required autocomplete="username" maxlength="150"></div>
+<div class="field full"><label for="email">E-mail *</label><input id="email" name="email" type="email" autocomplete="email" required aria-describedby="email-help"><small id="email-help">Use seu e-mail Gmail, Hotmail ou Outlook.</small></div>
+<div class="field"><label for="password">Senha *</label><input id="password" name="password" type="password" autocomplete="new-password" required minlength="5" aria-describedby="password-help"></div><div class="field"><label for="password2">Confirmar senha *</label><input id="password2" name="password2" type="password" autocomplete="new-password" required></div>
+<small class="field full" id="password-help">Pelo menos 5 caracteres, uma letra maiúscula, um número e um símbolo.</small>
+<div class="field full" id="matricula-group"><label for="matricula">Matrícula *</label><input id="matricula" name="matricula" maxlength="20"></div>
+<div class="field full" id="institution-group" style="display:none"><label for="instituicao">Instituições *</label><select id="instituicao" name="instituicoes" multiple size="3" aria-describedby="institution-help"><option value="">Carregando instituições…</option></select><small id="institution-help">Selecione onde você trabalha. A primeira instituição será a referência de localização. No computador, use Ctrl para selecionar mais de uma.</small></div></div><button type="submit">Criar minha conta</button></form><p class="auth-switch">Já tem uma conta? <a href="/login.html">Entrar</a></p>{% endblock %}
+{% block scripts %}<script src="{% static 'register.js' %}"></script>{% endblock %}

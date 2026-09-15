@@ -1,6 +1,6 @@
 # AURA — Controle Automatizado de Chamada Universitária
 
-> Sistema web para controle acadêmico de frequência utilizando QR Code dinâmico, geolocalização GPS e autenticação biométrica WebAuthn. Construído com Django e Django REST Framework.
+> Sistema web para controle acadêmico de frequência com QR Code dinâmico, geolocalização GPS e validação de matrícula. Construído com Django e Django REST Framework.
 
 ---
 
@@ -8,10 +8,10 @@
 
 AURA é um sistema web desenvolvido como trabalho de conclusão de curso (TCC) para automatizar o controle de frequência em instituições de ensino superior. O sistema combina três camadas de segurança para prevenir fraudes e garantir que apenas alunos fisicamente presentes possam registrar sua frequência.
 
-### Três Camadas de Segurança
+### Validação de presença
 - **QR Code Dinâmico** — token único gerado por aula, com validade de 30 segundos
-- **Geolocalização GPS** — valida se o estudante está dentro de um raio de 50 metros da sala de aula
-- **Autenticação Biométrica WebAuthn** — autenticação por impressão digital ou reconhecimento facial realizada localmente no dispositivo, nenhum dado biométrico é enviado ou armazenado no servidor
+- **Geolocalização GPS** — valida a posição no raio configurado para a instituição (padrão de 100 metros)
+- **Matrícula** — apenas alunos matriculados na turma podem registrar presença
 
 ---
 
@@ -44,7 +44,6 @@ AURA é um sistema web desenvolvido como trabalho de conclusão de curso (TCC) p
 | Frontend | HTML, CSS, JavaScript, Bootstrap 5 |
 | Geração de QR Code | Biblioteca Python `qrcode` |
 | Geolocalização | API do Navegador (browser-native) |
-| Autenticação Biométrica | WebAuthn via `py_webauthn` |
 | Controle de Versão | Git + GitHub |
 
 ---
@@ -127,9 +126,9 @@ Professor exibe QR Code no projetor
         ↓
 Aluno escanea o QR Code
         ↓
-GPS validado (dentro de 50m da sala)
+GPS validado (dentro do raio institucional)
         ↓
-Autenticação biométrica confirmada (WebAuthn — Face ID / impressão digital)
+Matrícula na turma confirmada
         ↓
 Frequência registrada ✓
         ↓
@@ -140,7 +139,7 @@ Lista do professor atualizada em tempo real
 
 ## Privacidade e LGPD
 
-O sistema foi projetado pensando na privacidade do aluno. O protocolo WebAuthn garante que dados biométricos (impressão digital, Face ID) **nunca deixem o dispositivo do usuário** e **não sejam transmitidos ou armazenados no servidor**. Apenas uma assinatura criptográfica é utilizada para confirmar identidade, em total conformidade com a Lei Geral de Proteção de Dados (LGPD) brasileira.
+O sistema armazena dados cadastrais, matrícula, presença e localização enviada no registro. Não utiliza biometria. O uso com alunos reais exige controle de acesso, HTTPS, backups e uma política de retenção e exclusão desses dados.
 
 ---
 

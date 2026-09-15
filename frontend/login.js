@@ -7,12 +7,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
-
-    // Clear previous errors
     errorDiv.textContent = '';
     errorDiv.classList.remove('show');
-
-    // Basic validation
     if (!username || !password) {
       errorDiv.textContent = 'Por favor, preencha todos os campos';
       errorDiv.classList.add('show');
@@ -38,12 +34,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
       const data = await response.json();
       const { access, refresh } = data;
-
-      // Store tokens
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
-
-      // Decode token to get role (base64url)
+      const requested = new URLSearchParams(window.location.search).get('next');
+      if (requested) {
+        const destination = new URL(requested, window.location.origin);
+        if (destination.origin === window.location.origin &&
+            ['/aluno.html', '/confirmar-presenca.html'].includes(destination.pathname) &&
+            data.user?.role === 'aluno') {
+          window.location.href = destination.pathname + destination.search;
+          return;
+        }
+      }
       try {
         const base64Url = access.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -54,7 +56,6 @@ document.addEventListener('DOMContentLoaded', function() {
           window.location.href = 'aluno.html';
         }
       } catch (e) {
-        // Fallback if token parsing fails
         window.location.href = 'aluno.html';
       }
 

@@ -2,6 +2,46 @@
 
 Este arquivo registra mudanças relevantes do AURA para acompanhamento do desenvolvimento e uso no TCC.
 
+## 2026-09-10 - Convite, aviso de chamada e confirmação automática
+
+- O professor compartilha o link de convite da turma e pode encerrar a chamada pela tela.
+- O aluno faz login, entra pelo convite e acompanha chamadas pendentes no painel, consultadas a cada cinco segundos enquanto a página está visível. Não são notificações push com o navegador fechado.
+- O aviso não fornece o token do QR Code. Apenas o professor consulta tokens; o aluno apresenta o token lido no QR.
+- A leitura válida em `POST /api/sessoes/{id}/preparar/` exige matrícula e gera um comprovante assinado para aquele aluno e sessão, válido por dois minutos. Isso permite obter o GPS após a rotação do QR de 30 segundos.
+- A página confirma automaticamente após a permissão de localização. Sessões encerradas, comprovantes expirados e posições fora do raio são rejeitados.
+- O aviso desaparece da lista de pendências após uma presença válida. Tentativas repetidas não duplicam a presença.
+- Reabrir a mesma aula reutiliza a sessão ativa. Login preserva o destino interno e as consultas do aluno renovam o token de acesso quando necessário.
+- Validação: 59 testes Python e 8 testes JavaScript aprovados; `manage.py check` sem problemas.
+- O comando `python manage.py prepare_local` cria um backup do SQLite e aplica migrations. O banco local foi atualizado com a migration de remoção da biometria, após backup em `backend/backups/`.
+
+O teste físico da câmera e do GPS ainda deve ser feito no celular pelo mesmo endereço HTTPS usado pelo professor. O scanner continua sendo a câmera do celular.
+
+## 2026-09-10 - Remoção definitiva de biometria
+
+Removidos os endpoints WebAuthn, a implementação de credenciais e challenges, o comando de limpeza, configurações e dependências diretas. O contrato de presença não expõe mais `webauthn_verified`. A migration `attendance/0005_remove_webauthn.py` remove as estruturas antigas; migrations anteriores foram preservadas para atualizar instalações existentes.
+
+O fluxo passa a ser exclusivamente login, matrícula, QR Code e GPS. O banco local existente não foi alterado: faça backup antes de executar `python manage.py migrate`. A remoção de tabelas elimina as credenciais antigas, sem eliminar presenças, usuários ou turmas.
+
+Os registros abaixo descrevem versões anteriores e foram mantidos como histórico.
+
+## 2026-09-10 - Correções de acesso, presença e painel
+
+- Corrigidas as consultas de turmas e aulas dos alunos pelo relacionamento `alunos`.
+- Professores só alteram suas matérias, turmas, aulas, sessões e matrículas. Alunos entram em turmas pelo convite.
+- Registro de presença exige matrícula e evita duplicações. O campo `webauthn_verified` permanece falso quando não há biometria.
+- Corrigidos o encerramento de sessão e a renovação do QR Code na mesma sessão.
+- Painel do aluno usa uma requisição e uma consulta agregada. Frequência zero com sessões existentes indica reprovação; ausência de sessões indica falta de dados.
+- Nomes são renderizados como texto, evitando interpretação de HTML recebido da API.
+- Corrigidos o botão de confirmação quando o GPS chega antes da API, a exibição de erros de localização e o fuso horário na data das aulas.
+- WebAuthn usa a API da biblioteca instalada, valida origem e titular da credencial e consome challenges uma única vez. Chaves novas são armazenadas em COSE/base64; credenciais antigas em DER/PEM precisam ser cadastradas novamente.
+- Removidos comentários repetitivos e separadores decorativos.
+- Adicionado o driver PostgreSQL e corrigido o diretório de execução do serviço web no Compose. O build não oculta mais erros de collectstatic.
+- Adicionados módulos `__init__.py` para a descoberta correta dos testes.
+
+Validação: 57 testes Python e 3 testes JavaScript aprovados. Execute `python -m pytest -q -p no:cacheprovider` em `backend` e `node --test frontend/regressions.test.cjs` na raiz. Os testes WebAuthn cobrem a geração real de opções e simulam a verificação de assinatura; não substituem o teste com autenticador físico. Docker não foi executado neste ambiente.
+
+O fluxo ativo continua sendo QR Code e GPS. Os endpoints WebAuthn são opcionais e não são chamados pelo frontend atual.
+
 ## 2026-09-08 - Teste geral e documentação técnica
 
 ### Objetivo
