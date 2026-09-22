@@ -54,7 +54,11 @@ document.addEventListener('DOMContentLoaded', () => {
       $('dashboard-activity').innerHTML=data.recentes.slice(0,5).map(row=>`<div class="activity-row"><div><p>${e(row.aluno)}</p><small>${e(row.aula)} · ${UI.date(row.data)}</small></div>${UI.badge(row.status)}</div>`).join('') || UI.empty('Ainda sem registros','Os resultados aparecerão quando os alunos verificarem a presença.');
       const groupFilter=$('report-group').value; $('report-group').innerHTML='<option value="">Todas as turmas</option>'+data.turmas.map(row=>`<option value="${row.id}">${e(row.nome)} — ${e(row.materia_nome)}</option>`).join(''); $('report-group').value=groupFilter;
       renderSubjects();renderGroups();renderReport();renderDetail();
-    } catch(error) { UI.notify(error.message,'error'); $('dashboard-lessons').innerHTML=UI.empty('Não foi possível carregar o painel','Confira sua conexão e tente novamente.','<button class="button" data-reload> Tentar novamente</button>'); }
+    } catch(error) {
+      UI.notify(error.message,'error');
+      const message=UI.empty('Não foi possível carregar os dados','Confira sua conexão e tente novamente.','<button class="button" data-reload>Tentar novamente</button>');
+      for(const id of ['dashboard-lessons','subject-list','group-list','report-table','group-detail-body']) $(id).innerHTML=message;
+    }
   }
   function openForm(type,id) {
     const collection={materia:'materias',turma:'turmas',aula:'aulas'}[type];

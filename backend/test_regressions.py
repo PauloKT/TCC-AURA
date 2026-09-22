@@ -220,7 +220,10 @@ class RegressionTests(TestCase):
         url = f'/api/sessoes/{self.session.pk}/resultados/'
         result = self.client.get(url)
         self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.data['resultados'], [{'aluno_id': self.student.pk, 'aluno': 'student', 'status': 'falta'}])
+        self.assertEqual(result.data['resultados'][0]['aluno'], 'student')
+        self.assertEqual(result.data['resultados'][0]['status'], 'falta')
+        self.assertIn('horario', result.data['resultados'][0])
+        self.assertEqual(result.data['aguardando'], 0)
         self.client.force_authenticate(self.other)
         self.assertEqual(self.client.get(url).status_code, 404)
         self.client.force_authenticate(self.student)

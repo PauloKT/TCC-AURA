@@ -1,2 +1,13 @@
 {% extends 'base.html' %}
-{% block layout %}<div class="auth-layout"><aside class="auth-story"><a class="brand" href="/login.html"><span class="brand-mark" aria-hidden="true">a</span><span>AURA<small>Chamada acadêmica</small></span></a><h1>Mais tempo para aprender.</h1><p>A presença conecta você à sala de aula. Acompanhe cada encontro com simplicidade.</p><div class="attendance-art" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div><small>Um espaço para professores e alunos.</small></aside><main id="main" class="auth-main"><div class="auth-form"><a class="brand auth-mobile-brand" href="/login.html"><span class="brand-mark" aria-hidden="true">a</span><span>AURA<small>Chamada acadêmica</small></span></a>{% block auth_content %}{% endblock %}</div></main></div>{% endblock %}
+{% block layout %}
+<div class="auth-layout">
+  <aside class="auth-story">
+    {% include 'includes/brand.html' %}
+    <h1>Mais tempo para aprender.</h1>
+    <p>A presença conecta você à sala de aula. Acompanhe cada encontro com simplicidade.</p>
+    <div class="attendance-art" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    <small class="auth-story-footer">Um espaço para professores e alunos.</small>
+  </aside>
+  <main id="main" class="auth-main"><div class="auth-form">{% block auth_content %}{% endblock %}</div></main>
+</div>
+{% endblock %}

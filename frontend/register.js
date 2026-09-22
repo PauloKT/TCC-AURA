@@ -6,24 +6,32 @@ document.addEventListener('DOMContentLoaded', function() {
   const matriculaGroup = document.getElementById('matricula-group');
   const institutionGroup = document.getElementById('institution-group');
   const institutionSelect = document.getElementById('instituicao');
+  const newInstitutionToggle = document.getElementById('new-institution-toggle');
+  const newInstitutionFields = document.getElementById('new-institution-fields');
+  let addingInstitution = false;
 
   loadInstitutions();
-  roleSelect.addEventListener('change', function() {
-    if (this.value === 'aluno') {
-      matriculaGroup.style.display = 'block';
-      institutionGroup.style.display = 'none';
-    } else {
-      matriculaGroup.style.display = 'none';
-      institutionGroup.style.display = 'block';
-    }
-  });
-  if (roleSelect.value === 'aluno') {
-    matriculaGroup.style.display = 'block';
-    institutionGroup.style.display = 'none';
-  } else {
-    matriculaGroup.style.display = 'none';
-    institutionGroup.style.display = 'block';
+  function updateFields() {
+    const isTeacher = roleSelect.value === 'professor';
+    const adding = isTeacher && addingInstitution;
+    document.getElementById('matricula').required = !isTeacher;
+    document.getElementById('matricula').disabled = isTeacher;
+    matriculaGroup.hidden = isTeacher;
+    institutionGroup.hidden = !isTeacher;
+    institutionSelect.required = isTeacher && !adding;
+    institutionSelect.disabled = !isTeacher || adding;
+    newInstitutionFields.hidden = !adding;
+    newInstitutionFields.disabled = !adding;
+    newInstitutionToggle.setAttribute('aria-expanded', String(adding));
+    newInstitutionToggle.textContent = adding ? 'Selecionar instituição existente' : 'Adicionar nova instituição';
   }
+  roleSelect.addEventListener('change', updateFields);
+  newInstitutionToggle.addEventListener('click', function() {
+    addingInstitution = !addingInstitution;
+    updateFields();
+    (addingInstitution ? document.getElementById('institution-name') : institutionSelect).focus();
+  });
+  updateFields();
 
   form.addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -38,7 +46,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const password2 = formData.get('password2');
     const role = formData.get('role');
     const matricula = role === 'aluno' ? formData.get('matricula').trim() : undefined;
-    const instituicoes = role === 'professor'
+    const adding = role === 'professor' && addingInstitution;
+    const instituicoes = role === 'professor' && !adding
       ? Array.from(institutionSelect.selectedOptions)
         .map(option => Number(option.value))
         .filter(Boolean)
@@ -68,7 +77,7 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
-    if (role === 'professor' && !instituicoes.length) {
+    if (role === 'professor' && !adding && !instituicoes.length) {
       showError('Selecione ao menos uma instituição');
       return;
     }
@@ -88,8 +97,18 @@ document.addEventListener('DOMContentLoaded', function() {
     if (instituicoes !== undefined) {
       data.instituicoes = instituicoes;
     }
+    if (adding) {
+      data.nova_instituicao = {};
+      ['nome', 'logradouro', 'numero', 'bairro', 'cidade', 'estado'].forEach(field => {
+        data.nova_instituicao[field] = (formData.get(`institution_${field}`) || '').trim();
+      });
+      data.nova_instituicao.estado = data.nova_instituicao.estado.toUpperCase();
+    }
 
     try {
+      const button = form.querySelector('button[type="submit"]');
+      button.disabled = true;
+      button.textContent = 'Criando conta…';
       const response = await fetch('/api/register/', {
         method: 'POST',
         headers: {
@@ -103,23 +122,39 @@ document.addEventListener('DOMContentLoaded', function() {
         const firstError =
           errorData.detail ||
           errorData.erro ||
-          Object.values(errorData).flat().find(Boolean) ||
+          firstErrorMessage(errorData) ||
           'Erro ao cadastrar';
         throw new Error(firstError);
       }
 
-      showSuccess('Cadastro realizado com sucesso! Faça login.');
-      setTimeout(() => {
-        window.location.href = 'login.html';
-      }, 2000);
+      showSuccess(adding
+        ? 'Conta e instituição cadastradas! Faça login. Para iniciar chamadas nesse campus, peça ao administrador que confirme a localização da instituição.'
+        : 'Cadastro realizado com sucesso! Faça login.');
+      if (!adding) {
+        setTimeout(() => { window.location.href = 'login.html'; }, 2000);
+      } else {
+        form.hidden = true;
+      }
     } catch (error) {
       showError(error.message);
+    } finally {
+      const button = form.querySelector('button[type="submit"]');
+      button.disabled = false;
+      button.textContent = 'Criar minha conta';
     }
   });
 
   function showError(message) {
     errorMessage.textContent = message;
     errorMessage.classList.add('show');
+  }
+
+  function firstErrorMessage(value) {
+    if (typeof value === 'string') return value;
+    if (value && typeof value === 'object') {
+      return Object.values(value).map(firstErrorMessage).find(Boolean);
+    }
+    return '';
   }
 
   function showSuccess(message) {
@@ -141,6 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (option.disabled) option.textContent += ' (localização pendente)';
         institutionSelect.appendChild(option);
       });
+      if (!data.length) institutionSelect.innerHTML = '<option value="" disabled>Nenhuma instituição cadastrada. Adicione a sua abaixo.</option>';
     } catch (error) {
       institutionSelect.innerHTML = '<option value="">Erro ao carregar instituições</option>';
       showError(error.message);

@@ -21,7 +21,9 @@ document.addEventListener('DOMContentLoaded', function() {
   async function loadGroups() {
     const { turmas } = await Aura.json('/api/aluno/turmas/');
     list.replaceChildren();
-    if (!turmas.length) list.textContent = 'Você não está matriculado em nenhuma turma.';
+    if (!turmas.length) {
+      list.textContent = 'Você ainda não está matriculado em nenhuma turma. Use “Entrar em uma turma” com o código do professor.';
+    }
     for (const turma of turmas) {
       const card = document.createElement('div');
       card.className = 'turma-card';
@@ -30,11 +32,15 @@ document.addEventListener('DOMContentLoaded', function() {
       const subject = document.createElement('p');
       subject.textContent = `${turma.materia.nome} — ${turma.semestre}/${turma.ano}`;
       const frequency = document.createElement('p');
-      const labels = { aprovado: 'Aprovado', reprovado: 'Reprovado' };
+      const labels = { aprovado: 'Regular', reprovado: 'Atenção' };
       const label = labels[turma.situacao];
       frequency.className = 'frequencia-value ' + (label ? turma.situacao : 'sem_dados');
       frequency.textContent = label ? `Frequência: ${turma.percentual}% (${label})` : 'Frequência: sem dados';
       card.append(title, subject, frequency);
+      const details = document.createElement('p');
+      details.className = 'muted';
+      details.textContent = `Professor: ${turma.professor || 'Não informado'} · ${turma.presencas ?? 0} presenças · ${turma.faltas ?? 0} faltas`;
+      card.appendChild(details);
       list.appendChild(card);
     }
   }
@@ -83,11 +89,14 @@ document.addEventListener('DOMContentLoaded', function() {
         body: JSON.stringify(invitation)
       });
       joinMessage.textContent = data.detail;
+      joinMessage.className = 'success show';
+      window.dispatchEvent(new Event('aura:joined'));
       inviteInput.value = '';
       await loadGroups();
       await checkCalls();
     } catch (error) {
       joinMessage.textContent = error.message;
+      joinMessage.className = 'error show';
     } finally {
       button.disabled = false;
     }

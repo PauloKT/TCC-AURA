@@ -3,7 +3,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const materia = el('materia-select'), turma = el('turma-select'), aula = el('aula-select');
   let groups = [], lessons = [];
   let sessionId = null, resultsId = null, countdown = null, resultsTimer = null;
-  let generation = 0, renderingResults = '';
+  let generation = 0, renderingResults = '', resultVersion = 0;
+  let starting = false, ending = null, qrRequest = null;
   const notify = (message, kind) => window.UI ? UI.notify(message, kind) : alert(message);
 
   function options(select, rows, placeholder, label, selected) {
@@ -17,14 +18,18 @@ document.addEventListener('DOMContentLoaded', function() {
     options(materia, rows, rows.length ? 'Selecione uma matéria' : 'Nenhuma matéria vinculada a este professor', row => `${row.nome} (${row.codigo})`, materia.value);
   }
   function resetCall() {
+    // Invalidate every pending request, including requests for the same session
+    // selected again after visiting another lesson.
+    generation++; resultVersion++; starting = false; ending = null; qrRequest = null;
     clearInterval(countdown); clearTimeout(resultsTimer); sessionId = null; resultsId = null; renderingResults = '';
     el('qr-code-container').style.display = 'none'; el('qr-code-img').removeAttribute('src');
     el('attendance-results').hidden = true; el('attendance-list').replaceChildren();
     el('start-session-btn').disabled = false; el('end-session-btn').hidden = true; el('refresh-results-btn').hidden = true;
+    el('start-session-btn').textContent = 'Iniciar chamada'; el('end-session-btn').disabled = false;
     el('call-state').textContent = 'Aguardando início';
   }
   async function subjectChanged() {
-    const version = ++generation; resetCall();
+    resetCall(); const version = generation;
     el('aulas-section').style.display = 'none'; el('session-section').style.display = 'none';
     el('turmas-section').style.display = materia.value ? 'grid' : 'none';
     options(turma, [], 'Carregando turmas…', row => row.nome); options(aula, [], 'Selecione uma aula', row => row.titulo);
@@ -38,7 +43,7 @@ document.addEventListener('DOMContentLoaded', function() {
     finally { if (version === generation) turma.disabled = false; }
   }
   async function groupChanged() {
-    const version = ++generation; resetCall();
+    resetCall(); const version = generation;
     el('session-section').style.display = 'none'; el('aulas-section').style.display = turma.value ? 'grid' : 'none';
     el('invite-code').value = groups.find(row => String(row.id) === turma.value)?.codigo_acesso || '';
     options(aula, [], 'Carregando aulas…', row => row.titulo);
@@ -73,18 +78,30 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   async function refreshQR() {
     const requested = sessionId;
-    if (!requested) return;
+    if (!requested || ending || qrRequest) return;
+    const request = { id: requested, generation }; qrRequest = request;
+    const current = () => request.generation === generation && requested === sessionId && !ending;
+    clearInterval(countdown);
     el('qr-code-img').removeAttribute('src');
     try {
       const data = await Aura.json(`/api/sessoes/${requested}/token/`);
-      if (requested === sessionId) showQR(data);
-    } catch(error) { if (requested === sessionId) { el('countdown').textContent = 'Atualização indisponível'; notify(error.message,'error'); } }
+      if (current()) { qrRequest = null; showQR(data); }
+    } catch(error) { if (current()) { el('countdown').textContent = 'Atualização indisponível'; notify(error.message,'error'); } }
+    finally { if (qrRequest === request) qrRequest = null; }
+  }
+  function showClosedCall(id) {
+    resetCall(); resultsId = id;
+    el('attendance-results').hidden = false; el('refresh-results-btn').hidden = false;
+    el('call-state').textContent = 'Chamada encerrada';
+    window.dispatchEvent(new Event('aura:changed'));
   }
   async function loadResults(id) {
+    const version = ++resultVersion;
     clearTimeout(resultsTimer);
     try {
       const data = await Aura.json(`/api/sessoes/${id}/resultados/`);
-      if (id !== resultsId) return;
+      if (id !== resultsId || version !== resultVersion) return;
+      if (data.ativa === false && id === sessionId) showClosedCall(id);
       const signature = JSON.stringify(data.resultados);
       if (signature !== renderingResults) {
         renderingResults = signature; el('attendance-list').replaceChildren();
@@ -99,34 +116,44 @@ document.addEventListener('DOMContentLoaded', function() {
       el('count-absent').textContent = data.resultados.filter(row => row.status === 'falta').length;
       el('count-pending').textContent = data.aguardando ?? '—';
       el('attendance-status').textContent = data.resultados.length ? (sessionId ? 'Atualização automática a cada 5 segundos.' : 'Chamada encerrada. Registros finais.') : 'Nenhum aluno verificou a presença ainda.';
-    } catch(error) { if (id === resultsId) el('attendance-status').textContent = 'Não foi possível atualizar. Use Atualizar registros para tentar novamente.'; }
-    finally { if (id === sessionId) resultsTimer = setTimeout(() => loadResults(id),5000); }
+    } catch(error) { if (id === resultsId && version === resultVersion) el('attendance-status').textContent = 'Não foi possível atualizar. Use Atualizar registros para tentar novamente.'; }
+    finally { if (id === sessionId && version === resultVersion) resultsTimer = setTimeout(() => loadResults(id),5000); }
   }
   el('start-session-btn').addEventListener('click', async function() {
-    if (!aula.value || sessionId) return;
-    this.disabled = true; this.textContent = 'Iniciando…';
+    if (!aula.value || sessionId || starting) return;
+    const version = generation;
+    const button = el('start-session-btn'); starting = true;
+    button.disabled = true; button.textContent = 'Iniciando…';
     try {
       const data = await Aura.json('/api/sessoes/', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({aula:aula.value})});
+      if (version !== generation) { notify('Chamada iniciada. Selecione novamente a aula e clique em Iniciar chamada para retomá-la.'); return; }
       sessionId = data.id; resultsId = data.id;
       el('end-session-btn').hidden = false; el('refresh-results-btn').hidden = false; el('attendance-results').hidden = false;
       el('call-state').textContent = 'Chamada aberta';
       el('location-info').textContent = `Localização institucional · Raio permitido de ${data.professor_radius_meters} m`;
       showQR(data); loadResults(data.id);
       window.dispatchEvent(new Event('aura:changed'));
-    } catch(error) { notify(error.message, 'error'); }
-    finally { this.disabled = Boolean(sessionId); this.textContent = 'Iniciar chamada'; }
+    } catch(error) { if (version === generation) notify(error.message, 'error'); }
+    finally { if (version === generation) { starting = false; button.disabled = Boolean(sessionId); button.textContent = 'Iniciar chamada'; } }
   });
   el('end-session-btn').addEventListener('click', async function() {
-    if (!sessionId) return;
-    this.disabled = true;
+    if (!sessionId || ending) return;
+    const request = { id: sessionId, generation }; ending = request;
+    const current = () => request.generation === generation && request.id === sessionId;
+    el('end-session-btn').disabled = true; clearInterval(countdown);
     try {
-      const id = sessionId;
-      await Aura.json(`/api/sessoes/${id}/encerrar/`,{method:'POST'});
-      resetCall(); resultsId = id; el('attendance-results').hidden = false; el('refresh-results-btn').hidden = false;
-      el('call-state').textContent = 'Chamada encerrada'; loadResults(id); notify('Chamada encerrada.');
-      window.dispatchEvent(new Event('aura:changed'));
-    } catch(error) { notify(error.message,'error'); }
-    finally { this.disabled = false; }
+      await Aura.json(`/api/sessoes/${request.id}/encerrar/`,{method:'POST'});
+      if (!current()) return;
+      showClosedCall(request.id); loadResults(request.id); notify('Chamada encerrada.');
+    } catch(error) {
+      if (current()) {
+        notify(error.message,'error'); ending = null;
+        // Another screen may already have closed it. Read the authoritative
+        // state before resuming the QR countdown.
+        await loadResults(request.id);
+        if (current()) refreshQR();
+      }
+    } finally { if (ending === request) ending = null; if (current()) el('end-session-btn').disabled = false; }
   });
   el('refresh-results-btn').addEventListener('click', () => { if (resultsId) loadResults(resultsId); if (sessionId) { clearInterval(countdown); refreshQR(); } });
   el('projector-btn').addEventListener('click', function() { const enabled = document.body.classList.toggle('projector'); this.setAttribute('aria-pressed',String(enabled)); this.textContent = enabled ? 'Sair do modo projetor' : 'Modo projetor'; });
@@ -145,5 +172,5 @@ document.addEventListener('DOMContentLoaded', function() {
   loadSubjects().catch(error => notify(error.message,'error')).finally(() => {
     el('loading').style.display = 'none'; el('content').style.display = 'block';
   });
-  window.addEventListener('beforeunload', () => { clearInterval(countdown); clearTimeout(resultsTimer); sessionId = null; resultsId = null; });
+  window.addEventListener('beforeunload', () => { generation++; resultVersion++; clearInterval(countdown); clearTimeout(resultsTimer); sessionId = null; resultsId = null; });
 });

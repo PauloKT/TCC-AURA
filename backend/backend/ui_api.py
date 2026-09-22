@@ -1,5 +1,7 @@
 """Read-only presentation data. Frequency follows the existing session-based rule."""
-from collections import Counter
+from collections import Counter, defaultdict
+
+from django.db.models import Count
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -49,13 +51,17 @@ class WorkspaceView(APIView):
         if user.role == 'aluno':
             enrollments = enrollments.filter(aluno=user)
             records = records.filter(aluno=user)
-        attended = Counter(records.filter(valida=True).values_list('sessao__aula__turma_id', 'aluno_id'))
+        attended = {
+            (row['sessao__aula__turma_id'], row['aluno_id']): row['total']
+            for row in records.filter(valida=True).values('sessao__aula__turma_id', 'aluno_id').annotate(total=Count('id'))
+        }
         group_map = {group.pk: group for group in groups}
         reports = []
+        reports_by_group = defaultdict(list)
         for enrollment in enrollments:
             group = group_map[enrollment.turma_id]
             total = totals[group.pk]
-            present = attended[(group.pk, enrollment.aluno_id)]
+            present = attended.get((group.pk, enrollment.aluno_id), 0)
             percentage, situation = frequency_result(total, present, group.materia.frequencia_minima)
             reports.append({
                 'vinculo_id': enrollment.pk, 'aluno_id': enrollment.aluno_id,
@@ -66,9 +72,10 @@ class WorkspaceView(APIView):
                 'percentual': percentage, 'situacao': situation,
                 'minimo': group.materia.frequencia_minima,
             })
+            reports_by_group[group.pk].append(reports[-1])
         result_groups = []
         for group in groups:
-            rows = [row for row in reports if row['turma_id'] == group.pk]
+            rows = reports_by_group[group.pk]
             result_groups.append({
                 'id': group.pk, 'nome': group.nome, 'materia': group.materia_id,
                 'materia_nome': group.materia.nome, 'professor': group.materia.professor.get_full_name() or group.materia.professor.username,

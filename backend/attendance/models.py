@@ -7,21 +7,11 @@ from courses.models import Aula
 from .geolocation import (
     MAX_RADIUS_METERS,
     MIN_RADIUS_METERS,
-    haversine_distance,
     is_within_radius,
     validate_coordinates,
     validate_radius,
 )
 
-
-def haversine(lat1, lon1, lat2, lon2):
-    """Mantém compatibilidade com chamadas antigas ao cálculo de distância."""
-    return haversine_distance(lat1, lon1, lat2, lon2)
-
-
-def haversine_distance_check(lat1, lon1, lat2, lon2, max_distance_meters):
-    """Mantém compatibilidade com chamadas antigas à regra de geofence."""
-    return is_within_radius(lat1, lon1, lat2, lon2, max_distance_meters)
 
 class SessaoChamada(models.Model):
     id = models.AutoField(primary_key=True)

@@ -5,17 +5,14 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from django.core import signing
-from django.db import transaction
 from rest_framework import serializers
 from .models import SessaoChamada, Presenca
 from .serializers import SessaoChamadaSerializer, SessaoTokenSerializer, PresencaSerializer, PresencaCreateSerializer
 from courses.models import Aula
 from django.shortcuts import get_object_or_404
-from django.contrib.auth import get_user_model
 from courses.models import TurmaAluno
 from .geolocation import validate_coordinates, validate_radius
-
-User = get_user_model()
+from .transactions import chamada_atomic, bloquear_sessao
 
 class IsProfessor(IsAuthenticated):
     def has_permission(self, request, view):
@@ -25,17 +22,6 @@ class IsAluno(IsAuthenticated):
     def has_permission(self, request, view):
         return super().has_permission(request, view) and request.user.role == 'aluno'
 
-
-class CanViewSessionToken(IsAuthenticated):
-    """Permite token ao professor responsável ou a aluno matriculado."""
-
-    def has_object_permission(self, request, view, obj):
-        if request.user.role == 'professor':
-            return obj.aula.turma.materia.professor_id == request.user.id
-        return TurmaAluno.objects.filter(
-            turma=obj.aula.turma,
-            aluno=request.user,
-        ).exists()
 
 class SessaoChamadaViewSet(viewsets.ModelViewSet):
     queryset = SessaoChamada.objects.all()
@@ -81,19 +67,23 @@ class SessaoChamadaViewSet(viewsets.ModelViewSet):
     def preparar(self, request, pk=None):
         sessao = self.get_object()
         token = serializers.CharField(max_length=100).run_validation(request.data.get('token'))
-        if not sessao.is_token_valid() or token != sessao.token_atual:
-            raise ValidationError({'detail': 'QR Code expirado ou chamada encerrada. Leia o QR Code atual.'})
-        # Reserva dois minutos para obter o GPS após ler um QR válido.
-        comprovante = signing.dumps(
-            {'sessao': sessao.pk, 'aluno': request.user.pk}, salt='attendance.scan',
-        )
+        with chamada_atomic():
+            sessao = bloquear_sessao(sessao.pk)
+            if not TurmaAluno.objects.select_for_update().filter(turma_id=sessao.aula.turma_id, aluno=request.user).only('id').first():
+                raise ValidationError({'detail': 'Você não está matriculado nesta turma.'})
+            if not sessao.is_token_valid() or token != sessao.token_atual:
+                raise ValidationError({'detail': 'QR Code expirado ou chamada encerrada. Leia o QR Code atual.'})
+            # Reserva dois minutos para obter o GPS após ler um QR válido.
+            comprovante = signing.dumps(
+                {'sessao': sessao.pk, 'aluno': request.user.pk}, salt='attendance.scan',
+            )
         return Response({
             'comprovante': comprovante,
             'prazo_segundos': 120,
             'aula': sessao.aula.titulo,
             'turma': sessao.aula.turma.nome,
             'radius_meters': sessao.professor_radius_meters,
-        })
+        }, headers={'Cache-Control': 'no-store'})
 
     def perform_create(self, serializer):
         # Garante que a aula pertence a uma materia do professor.
@@ -128,9 +118,9 @@ class SessaoChamadaViewSet(viewsets.ModelViewSet):
         except ValueError as exc:
             raise ValidationError({'detail': str(exc)}) from exc
 
-        with transaction.atomic():
+        with chamada_atomic():
             Aula.objects.select_for_update().get(pk=aula.pk)
-            existente = SessaoChamada.objects.filter(aula=aula, ativa=True).first()
+            existente = SessaoChamada.objects.select_for_update().filter(aula=aula, ativa=True).first()
             if existente:
                 if not existente.is_token_valid():
                     existente.refresh_token()
@@ -150,12 +140,24 @@ class SessaoChamadaViewSet(viewsets.ModelViewSet):
         Returns current token, expiration, seconds remaining, and professor location.
         """
         sessao = self.get_object()
-        if not sessao.ativa:
-            return Response({'detail': 'Sessão encerrada.'}, status=status.HTTP_400_BAD_REQUEST)
-        if request.user.role == 'professor' and not sessao.is_token_valid():
-            sessao.refresh_token()
-        serializer = SessaoTokenSerializer(sessao)
-        return Response(serializer.data)
+        with chamada_atomic():
+            sessao = bloquear_sessao(sessao.pk)
+            if not sessao.ativa:
+                return Response({'detail': 'Sessão encerrada.'}, status=status.HTTP_400_BAD_REQUEST)
+            if not sessao.is_token_valid():
+                sessao.refresh_token()
+            data = SessaoTokenSerializer(sessao).data
+        return Response(data, headers={'Cache-Control': 'no-store'})
+
+    def perform_update(self, serializer):
+        # PATCH/PUT de uma instância antiga também não pode reabrir a sessão.
+        with chamada_atomic():
+            serializer.instance = bloquear_sessao(serializer.instance.pk)
+            serializer.save()
+
+    def perform_destroy(self, instance):
+        with chamada_atomic():
+            bloquear_sessao(instance.pk).delete()
 
     @action(detail=True, methods=['get'], url_path='resultados')
     def resultados(self, request, pk=None):
@@ -164,7 +166,7 @@ class SessaoChamadaViewSet(viewsets.ModelViewSet):
         registros = list(registros)
         total_alunos = TurmaAluno.objects.filter(turma=sessao.aula.turma).count()
         registrados_matriculados = TurmaAluno.objects.filter(turma=sessao.aula.turma, aluno_id__in=[registro.aluno_id for registro in registros]).count()
-        return Response({'total_alunos': total_alunos, 'aguardando': total_alunos - registrados_matriculados, 'resultados': [{
+        return Response({'ativa': sessao.ativa, 'encerrada_em': sessao.encerrada_em, 'total_alunos': total_alunos, 'aguardando': total_alunos - registrados_matriculados, 'resultados': [{
             'aluno_id': registro.aluno_id,
             'aluno': registro.aluno.get_full_name() or registro.aluno.username,
             'status': 'presente' if registro.valida else 'falta',
@@ -178,11 +180,13 @@ class SessaoChamadaViewSet(viewsets.ModelViewSet):
         Ends the session.
         """
         sessao = self.get_object()
-        if not sessao.ativa:
-            return Response({'detail': 'Sessão já está encerrada.'}, status=status.HTTP_400_BAD_REQUEST)
-        sessao.ativa = False
-        sessao.encerrada_em = timezone.now()
-        sessao.save(update_fields=['ativa', 'encerrada_em'])
+        with chamada_atomic():
+            sessao = bloquear_sessao(sessao.pk)
+            if not sessao.ativa:
+                return Response({'detail': 'Sessão já está encerrada.'}, status=status.HTTP_400_BAD_REQUEST)
+            sessao.ativa = False
+            sessao.encerrada_em = timezone.now()
+            sessao.save(update_fields=['ativa', 'encerrada_em'])
         return Response({'detail': 'Sessão encerrada com sucesso.'}, status=status.HTTP_200_OK)
 
 class PresencaCreateView(viewsets.GenericViewSet):

@@ -4,6 +4,7 @@ from django.core import signing
 from courses.models import TurmaAluno
 from .models import SessaoChamada, Presenca
 from .geolocation import validate_coordinates
+from .transactions import chamada_atomic, bloquear_sessao
 
 
 class SessaoChamadaSerializer(serializers.ModelSerializer):
@@ -67,13 +68,22 @@ class PresencaCreateSerializer(serializers.Serializer):
         except ValueError as exc:
             raise serializers.ValidationError({'detail': str(exc)}) from exc
 
-        sessao = SessaoChamada.objects.filter(id=attrs['sessao_id']).first()
+        sessao = SessaoChamada.objects.select_related('aula').filter(id=attrs['sessao_id']).first()
         if not sessao:
             raise serializers.ValidationError({'sessao_id': 'Sessão não encontrada.'})
 
-        if not TurmaAluno.objects.filter(
+        self.validate_session(sessao, attrs)
+        attrs['sessao'] = sessao
+        return attrs
+
+    def validate_session(self, sessao, attrs, *, lock_enrollment=False):
+        """Valida também dentro da gravação; o snapshot do is_valid pode envelhecer."""
+        matriculas = TurmaAluno.objects.filter(
             turma_id=sessao.aula.turma_id, aluno=self.context['request'].user,
-        ).exists():
+        )
+        if lock_enrollment:
+            matriculas = matriculas.select_for_update()
+        if matriculas.only('id').first() is None:
             raise serializers.ValidationError({'detail': 'Você não está matriculado nesta turma.'})
 
         if not sessao.ativa:
@@ -92,19 +102,19 @@ class PresencaCreateSerializer(serializers.Serializer):
         if sessao.professor_latitude is None or sessao.professor_longitude is None:
             raise serializers.ValidationError({'detail': 'A sessão não possui localização institucional válida.'})
 
-        attrs['sessao'] = sessao
-        return attrs
-
     def create(self, validated_data):
+        """Serializa registro e encerramento; mantém o primeiro resultado salvo."""
         aluno = self.context['request'].user
-        sessao = validated_data['sessao']
-
-        presenca, _ = Presenca.objects.get_or_create(
-            sessao=sessao,
-            aluno=aluno,
-            defaults={
-                'latitude': validated_data['latitude'],
-                'longitude': validated_data['longitude'],
-            },
-        )
+        with chamada_atomic():
+            sessao = bloquear_sessao(validated_data['sessao_id'])
+            # Revalidar após adquirir o bloqueio inclui expiração durante a espera.
+            self.validate_session(sessao, validated_data, lock_enrollment=True)
+            presenca, _ = Presenca.objects.get_or_create(
+                sessao=sessao,
+                aluno=aluno,
+                defaults={
+                    'latitude': validated_data['latitude'],
+                    'longitude': validated_data['longitude'],
+                },
+            )
         return presenca

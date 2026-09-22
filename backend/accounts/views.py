@@ -68,7 +68,7 @@ class AlunoMinhaFrequenciaView(AlunoView):
 
 class AlunoTurmasView(AlunoView):
     def get(self, request):
-        turmas = Turma.objects.filter(alunos__aluno=request.user).select_related('materia').annotate(
+        turmas = Turma.objects.filter(alunos__aluno=request.user).select_related('materia', 'materia__professor').annotate(
             total_sessoes=Count('aulas__sessoes', distinct=True),
             presencas_validas=Count(
                 'aulas__sessoes__presencas',
@@ -87,6 +87,9 @@ class AlunoTurmasView(AlunoView):
                 'materia': {'id': turma.materia.id, 'nome': turma.materia.nome, 'codigo': turma.materia.codigo},
                 'semestre': turma.semestre, 'ano': turma.ano, 'ativa': turma.ativa,
                 'percentual': percentual, 'situacao': situacao,
+                'professor': turma.materia.professor.get_full_name() or turma.materia.professor.username,
+                'presencas': turma.presencas_validas,
+                'faltas': turma.total_sessoes - turma.presencas_validas,
             })
         return Response({'turmas': resultado})
 

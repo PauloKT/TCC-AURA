@@ -15,6 +15,15 @@ window.UI = (() => {
     return `<span class="badge ${style}">${escape(label)}</span>`;
   }
   const empty = (title, description = '', action = '') => `<div class="empty-state"><span class="empty-symbol" aria-hidden="true">▦</span><h3>${escape(title)}</h3><p>${escape(description)}</p>${action}</div>`;
+  function setMenu(open, restoreFocus = false) {
+    const menu = document.getElementById('navigation-menu');
+    const toggle = document.getElementById('menu-toggle');
+    if (!menu || !toggle) return;
+    menu.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.setAttribute('aria-label', open ? 'Fechar menu de navegação' : 'Abrir menu de navegação');
+    if (restoreFocus) toggle.focus();
+  }
   function route() {
     const name = location.hash.slice(1).split('/')[0] || 'inicio';
     const panels = [...document.querySelectorAll('[data-panel]')];
@@ -25,17 +34,28 @@ window.UI = (() => {
       if (link.dataset.nav === actual || (actual === 'detalhe' && link.dataset.nav === 'turmas')) link.setAttribute('aria-current', 'page');
       else link.removeAttribute('aria-current');
     }
-    document.body.classList.remove('menu-open');
-    document.getElementById('menu-toggle')?.setAttribute('aria-expanded', 'false');
+    setMenu(false);
   }
   document.addEventListener('DOMContentLoaded', async () => {
     route(); window.addEventListener('hashchange', route);
     document.getElementById('menu-toggle')?.addEventListener('click', event => {
-      const open = document.body.classList.toggle('menu-open'); event.currentTarget.setAttribute('aria-expanded', String(open));
+      setMenu(event.currentTarget.getAttribute('aria-expanded') !== 'true');
     });
-    document.addEventListener('keydown', event => { if (event.key === 'Escape') { document.body.classList.remove('menu-open'); document.getElementById('menu-toggle')?.setAttribute('aria-expanded','false'); } });
+    document.getElementById('menu-toggle')?.addEventListener('keydown', event => {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault(); setMenu(true);
+        document.querySelector('#navigation-menu nav a')?.focus();
+      }
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && document.getElementById('menu-toggle')?.getAttribute('aria-expanded') === 'true') setMenu(false, true);
+    });
+    document.addEventListener('focusin', event => {
+      if (!event.target.closest('#navigation-menu, #menu-toggle')) setMenu(false);
+    });
     document.addEventListener('click', event => {
-      if (document.body.classList.contains('menu-open') && !event.target.closest('#sidebar, #menu-toggle')) { document.body.classList.remove('menu-open'); document.getElementById('menu-toggle')?.setAttribute('aria-expanded','false'); }
+      if (event.target.closest('#navigation-menu a')) setMenu(false, true);
+      else if (!event.target.closest('#navigation-menu, #menu-toggle')) setMenu(false);
       const opener = event.target.closest('[data-dialog]');
       if (opener) document.getElementById(opener.dataset.dialog)?.showModal();
       if (event.target.closest('[data-close]')) event.target.closest('dialog')?.close();
@@ -53,7 +73,11 @@ window.UI = (() => {
       document.getElementById('user-avatar').textContent = profile.nome.slice(0, 2).toUpperCase();
       const details = document.getElementById('profile-details');
       if (details) details.innerHTML = Object.entries({ Nome: profile.nome, Usuário: profile.username, 'E-mail': profile.email, Perfil: profile.role === 'professor' ? 'Professor' : 'Aluno', ...(profile.role === 'aluno' ? {'Matrícula': profile.matricula} : {'Instituições': profile.instituicoes.join(', ')}) }).map(([key,value]) => `<dt>${escape(key)}</dt><dd>${escape(value || 'Não informado')}</dd>`).join('');
-    } catch (error) { notify(error.message, 'error'); }
+    } catch (error) {
+      notify(error.message, 'error');
+      const details = document.getElementById('profile-details');
+      if (details) details.innerHTML = '<dt>Não foi possível carregar</dt><dd>Confira a conexão e atualize esta página.</dd>';
+    }
   });
   return { escape, notify, date, percent, badge, empty, route };
 })();

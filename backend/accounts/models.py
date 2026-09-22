@@ -1,11 +1,9 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-import uuid
 import requests
 from django.conf import settings
 import re
 from django.core.cache import cache
-from django.utils import timezone
 
 # Database indexing strategy for performance optimization:
 # - Role-based queries: Index on 'role' field for filtering professors/alunos

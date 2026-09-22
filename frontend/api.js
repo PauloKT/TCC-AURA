@@ -42,7 +42,9 @@ window.Aura = (() => {
     const response = await request(url, options);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.detail || Object.values(data).flat().find(Boolean) || 'Não foi possível concluir. Tente novamente.');
+      const labels = { nome: 'Nome', codigo: 'Código', carga_horaria: 'Carga horária', frequencia_minima: 'Frequência mínima', materia: 'Matéria', turma: 'Turma', hora_inicio: 'Início', hora_fim: 'Fim', data: 'Data', titulo: 'Título' };
+      const message = data.detail || Object.entries(data).map(([field, errors]) => `${labels[field] || field}: ${Array.isArray(errors) ? errors.join(' ') : errors}`).join('\n');
+      throw new Error(message || 'Não foi possível concluir. Tente novamente.');
     }
     return data;
   }

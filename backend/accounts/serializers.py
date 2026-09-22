@@ -1,15 +1,34 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import CustomUser
 from courses.models import Instituicao
 
 User = get_user_model()
+
+class NovaInstituicaoSerializer(serializers.ModelSerializer):
+    """Cadastro de campus sem autorização para definir coordenadas ou raio."""
+
+    class Meta:
+        model = Instituicao
+        fields = ('nome', 'logradouro', 'numero', 'bairro', 'cidade', 'estado')
+
+    def validate_nome(self, value):
+        if Instituicao.objects.filter(nome__iexact=value).exists():
+            raise serializers.ValidationError('Esta instituição já está cadastrada. Selecione-a na lista ou contate o administrador se a localização estiver pendente.')
+        return value
+
+    def validate_estado(self, value):
+        value = value.upper()
+        if value not in 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split():
+            raise serializers.ValidationError('Informe uma UF válida, como MS ou SP.')
+        return value
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     password2 = serializers.CharField(write_only=True, label="Confirmar senha")
     cep = serializers.CharField(required=False, allow_blank=True, max_length=9)
+    nova_instituicao = NovaInstituicaoSerializer(required=False, write_only=True)
     instituicoes = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Instituicao.objects.filter(ativa=True),
@@ -18,7 +37,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'role', 'matricula', 'instituicao', 'instituicoes', 'cep', 'password', 'password2')
+        fields = ('username', 'email', 'role', 'matricula', 'instituicao', 'instituicoes', 'nova_instituicao', 'cep', 'password', 'password2')
         extra_kwargs = {
             'email': {'required': True},
         }
@@ -54,23 +73,35 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         if attrs.get('role') == 'aluno' and not attrs.get('matricula'):
             raise serializers.ValidationError({"matricula": "Matrícula é obrigatória para alunos."})
 
+        nova_instituicao = attrs.get('nova_instituicao')
+        if nova_instituicao and attrs.get('role') != 'professor':
+            raise serializers.ValidationError({'nova_instituicao': 'Somente o cadastro de professor pode adicionar uma instituição.'})
+
         if attrs.get('role') == 'professor':
             instituicoes = attrs.get('instituicoes', [])
             instituicao = attrs.get('instituicao')
+            if nova_instituicao and (instituicoes or instituicao):
+                raise serializers.ValidationError({'nova_instituicao': 'Escolha instituições existentes ou cadastre uma nova.'})
             if not instituicoes and instituicao:
                 instituicoes = [instituicao]
                 attrs['instituicoes'] = instituicoes
-            if not instituicoes or not all(instituicao.ativa for instituicao in instituicoes):
+            if (not instituicoes and not nova_instituicao) or not all(instituicao.ativa for instituicao in instituicoes):
                 raise serializers.ValidationError({
                     'instituicao': 'Selecione ao menos uma instituição ativa para professores.'
                 })
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
+        """Cria conta e campus juntos; erro no cadastro não deixa instituição órfã."""
         # Remove password2
         validated_data.pop('password2')
         password = validated_data.pop('password')
         instituicoes = validated_data.pop('instituicoes', [])
+        nova_instituicao = validated_data.pop('nova_instituicao', None)
+        if nova_instituicao:
+            # Endereço não é geocodificado automaticamente: a confirmação continua administrativa.
+            instituicoes = [Instituicao.objects.create(**nova_instituicao)]
         if instituicoes and not validated_data.get('instituicao'):
             validated_data['instituicao'] = instituicoes[0]
         # Create user with the password properly hashed

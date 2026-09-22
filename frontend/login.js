@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     try {
+      const button = form.querySelector('button[type="submit"]');
+      if (button) { button.disabled = true; button.textContent = 'Entrando…'; }
       const response = await fetch('/api/login/', {
         method: 'POST',
         headers: {
@@ -62,6 +64,9 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (error) {
       errorDiv.textContent = error.message || 'Erro ao fazer login';
       errorDiv.classList.add('show');
+    } finally {
+      const button = form.querySelector('button[type="submit"]');
+      if (button) { button.disabled = false; button.textContent = 'Entrar na minha conta'; }
     }
   });
 });

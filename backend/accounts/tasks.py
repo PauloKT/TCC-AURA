@@ -1,17 +1,14 @@
 """
 Tasks assíncronas para o app `accounts`.
 
-Em produção, prefira Celery + Redis/RabbitMQ. Para mantermos zero
-infra-dependência no ambiente de dev/testes, usamos um thread daemon
-com timeout que persiste o resultado no banco.
+Compatibilidade com o cadastro antigo por CEP: uma thread daemon tenta
+persistir as coordenadas. Não é uma fila durável; novas sessões usam a instituição.
 """
 from __future__ import annotations
 
 import logging
 import threading
-from typing import Optional
-
-from django.conf import settings
+from django.db import close_old_connections
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +17,7 @@ def _geocode_and_update(user_pk: int, cep: str) -> None:
     """Resolve CEP → (lat, lng) e grava no professor."""
     from .models import CustomUser, get_coordinates_from_cep
 
+    close_old_connections()
     try:
         lat, lng = get_coordinates_from_cep(cep)
         if lat is None or lng is None:
@@ -30,29 +28,14 @@ def _geocode_and_update(user_pk: int, cep: str) -> None:
         logger.info("Geocoding ok: user_pk=%s cep=%s", user_pk, cep)
     except Exception:
         logger.exception("Erro inesperado no geocoding assíncrono")
+    finally:
+        close_old_connections()
 
 
 def geocode_professor_async(user_pk: int, cep: str) -> None:
-    """
-    Dispara geocoding em background. Usa Celery se disponível; caso contrário,
-    lança um thread daemon.
-    """
+    """Dispara a tentativa legada de geocodificação em uma thread daemon."""
     if not cep:
         return
-
-    # Caminho Celery (produção).
-    try:
-        from celery import shared_task  # type: ignore
-
-        @shared_task
-        def _task(pk: int, c: str) -> None:
-            _geocode_and_update(pk, c)
-
-        _task.delay(user_pk, cep)
-        return
-    except Exception:
-        # Sem Celery configurado → fallback em thread.
-        pass
 
     thread = threading.Thread(
         target=_geocode_and_update,

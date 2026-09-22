@@ -48,13 +48,14 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-DO-NOT-USE-IN
 DEBUG = env_bool('DEBUG', default=True)
 
 # Fail-loud em produção: SECRET_KEY não pode ser o placeholder.
-if not DEBUG and SECRET_KEY.startswith('django-insecure-'):
+if not DEBUG and (len(SECRET_KEY) < 50 or SECRET_KEY.startswith(('django-insecure-', 'change-me'))):
     raise RuntimeError(
         "SECRET_KEY não foi definida em produção. "
         "Defina a variável de ambiente SECRET_KEY com uma chave forte."
     )
 
 ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
+CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS')
 
 # Application definition
 INSTALLED_APPS = [
@@ -79,6 +80,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -89,7 +91,7 @@ MIDDLEWARE = [
 
 # Security headers aplicados apenas em produção.
 if not DEBUG:
-    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', default=True)
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
@@ -141,6 +143,9 @@ else:
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
+            # SQLite não implementa SELECT FOR UPDATE. Reserve a escrita antes
+            # das leituras nas transações curtas de chamada (sem ATOMIC_REQUESTS).
+            'OPTIONS': {'transaction_mode': 'IMMEDIATE', 'timeout': 20},
         }
     }
 
@@ -175,6 +180,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage'},
+}
 
 # Media files (User uploads)
 MEDIA_URL = '/media/'
@@ -211,7 +220,6 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': True,
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'VERIFYING_KEY': None,
@@ -238,7 +246,3 @@ CORS_ALLOWED_ORIGINS = env_list(
 # Regra explícita: nunca permita todas as origens fora de dev.
 CORS_ALLOW_ALL_ORIGINS = DEBUG and not CORS_ALLOWED_ORIGINS
 CORS_ALLOW_CREDENTIALS = True
-
-
-# Custom settings for geolocation radius (in meters)
-GEOFENCE_RADIUS_METERS = 100  # default radius; can be overridden per session if needed
