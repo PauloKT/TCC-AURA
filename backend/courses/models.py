@@ -34,7 +34,6 @@ class Instituicao(models.Model):
 
     @property
     def endereco_completo(self):
-        """Retorna o endereço pronto para envio ao serviço de geocodificação."""
         return (
             f'{self.logradouro}, {self.numero}, {self.bairro}, '
             f'{self.cidade}, {self.estado}, {self.pais}'
@@ -69,7 +68,7 @@ class Materia(models.Model):
 class Turma(models.Model):
     nome = models.CharField(max_length=100)
     materia = models.ForeignKey(Materia, on_delete=models.CASCADE, related_name='turmas')
-    semestre = models.CharField(max_length=20)  # e.g., "2024.1"
+    semestre = models.CharField(max_length=20)
     ano = models.IntegerField()
     link_acesso = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     codigo_acesso = models.CharField(max_length=8, default=gerar_codigo_acesso, unique=True, editable=False)

@@ -1,6 +1,6 @@
 ﻿# Testar chamada pelo celular
 
-Revisado em **17/09/2026**. Professor e aluno devem usar o mesmo endereço HTTPS. No teste local, o banco continua no computador que executa Django.
+Revisado em **01/10/2026**. Professor e aluno devem usar o mesmo endereço HTTPS. No teste local, o banco continua no computador que executa Django.
 
 ## Preparar o computador ou notebook
 
@@ -21,7 +21,7 @@ Se não estiver no PATH, use o local em que foi instalado. Exemplo:
 
 O argumento é somente a URL: não copie colchetes nem sintaxe de link Markdown. Se o serviço responder com erro 409, tente novamente mais tarde; esse erro de provisionamento ocorre antes de o túnel alcançar o Django.
 
-5. Adicione o hostname retornado (sem `https://`) a `ALLOWED_HOSTS`. Para acessar o admin pelo túnel, adicione a URL HTTPS completa a `CSRF_TRUSTED_ORIGINS`. Reinicie o Django.
+5. Adicione o hostname retornado (sem `https://`) a `ALLOWED_HOSTS` e a URL HTTPS completa a `CSRF_TRUSTED_ORIGINS`. Defina `SESSION_COOKIE_SECURE=True` e `CSRF_COOKIE_SECURE=True`. Reinicie o Django. Essas opções são necessárias também para login e formulários do sistema. Para voltar ao HTTP local, use `False` nas duas opções de cookie.
 6. Abra o endereço HTTPS no computador e no celular; mantenha servidor e túnel ligados. A rede da faculdade precisa permitir acesso ao domínio. O celular pode usar outra rede com internet.
 7. Encerre servidor e túnel após o ensaio: o túnel torna o servidor de desenvolvimento acessível pela internet.
 
@@ -44,33 +44,38 @@ Se a instituição ainda não existir, no cadastro escolha **Sou professor → A
 2. Selecione **Entrar em uma turma**, digite o código e confirme a matrícula.
 3. O painel consulta chamadas disponíveis a cada cinco segundos enquanto está visível.
 4. Leia o QR com a câmera e abra o link no mesmo navegador. Se abrir um navegador interno sem login, autentique-se; pode ser necessário ler o QR atual novamente.
-5. Permita a localização e aguarde o resultado: presença dentro do raio ou **falta registrada** fora dele.
+5. Permita a localização e aguarde o resultado: presença dentro do raio ou erro com opção de tentar novamente fora dele.
 
 Se negar GPS ou houver erro de captura, nada é registrado: corrija a permissão e tente novamente. Uma leitura validada pelo servidor dá 120 segundos para concluir GPS; depois disso, leia o QR atual. A chamada deve continuar aberta.
 
-Depois de registrado, o primeiro resultado fica mantido. Aproximar-se após registrar falta e ler novamente não transforma a falta em presença. Para ensaiar outro cenário, crie uma chamada de teste separada.
+Fora do raio, nenhuma presença é gravada. Corrija a localização e tente novamente na mesma chamada; se o comprovante vencer, leia o QR atual. Depois de confirmada, a presença é mantida sem duplicação. Registros inválidos de versões anteriores também podem ser corrigidos enquanto a chamada estiver aberta.
 
 ## Conferir a localização
 
 O raio é medido da coordenada institucional salva na abertura da sessão, não da posição do notebook. A migration já preenche coordenadas da AEMS; confira no admin se correspondem ao campus e se o raio atende à sala usada.
 
-Em casa, uma chamada da AEMS deve registrar falta por distância. Para testar em outro local, use uma instituição de teste com coordenadas reais desse local. Professores com várias instituições ainda não escolhem o campus ao iniciar a aula; confira qual foi usado.
+Em casa, uma chamada da AEMS deve rejeitar a tentativa por distância, sem gravar presença. Para testar em outro local, use uma instituição de teste com coordenadas reais desse local. Professores com várias instituições ainda não escolhem o campus ao iniciar a aula; confira qual foi usado.
 
 ## Roteiro de aceite
 
 - [ ] Professor cria matéria, turma e aula; seleções e código correspondem à turma correta.
 - [ ] Aluno entra por código; aluno de fora da turma não confirma presença.
 - [ ] GPS dentro do raio registra presente e aparece no painel do professor.
-- [ ] GPS fora do raio registra falta e aparece no painel do professor.
+- [ ] GPS fora do raio mostra erro sem gravar; uma nova tentativa dentro do raio confirma na mesma sessão.
 - [ ] Negar GPS ou perder conexão não mostra falso sucesso nem falta automática.
 - [ ] QR vencido pede nova leitura; rotação após leitura válida preserva o prazo do comprovante.
 - [ ] Encerrar antes do processamento do registro impede a gravação. Em envios próximos ao encerramento, a ordem é definida pelo bloqueio no banco, não pela ordem visual dos cliques.
-- [ ] Repetir envio não duplica nem altera o primeiro resultado.
+- [ ] Repetir envio não duplica nem altera uma presença já confirmada.
+- [ ] QR gira automaticamente; ao perder conexão, a imagem vencida some e a renovação retoma após reconectar.
+- [ ] Nenhuma requisição de imagem do QR vai para outro domínio.
 - [ ] Conferir frequência e CSV manualmente com uma turma de dados conhecidos.
+- [ ] Abrir uma chamada não altera a frequência; encerrá-la inclui as presenças e faltas dessa chamada nos relatórios.
+- [ ] Fazer login novamente após a atualização; sair encerra a sessão, inclusive ao tentar reutilizar a página anterior.
+- [ ] Cadastro aceita e-mail institucional e carrega instituições sem expor coordenadas na resposta pública.
 - [ ] Testar Android/iPhone disponíveis, menu, formulários e páginas em tela pequena.
 - [ ] Registrar data, dispositivo, navegador, rede, cenário e resultado real de cada ensaio.
 
-O usuário já relatou teste de falta fora do raio. Ainda é necessário documentar o sucesso dentro do raio e os demais casos. A imagem do QR depende de `api.qrserver.com`; os avisos não funcionam como push com navegador fechado.
+O teste fora do raio relatado anteriormente usava a regra antiga de falta gravada. Repita o ensaio com a regra atual e documente o sucesso dentro do raio e a nova tentativa. A imagem do QR é gerada pelo próprio Django; os avisos não funcionam como push com navegador fechado.
 
 ## Ensaio de chamadas simultâneas
 
@@ -80,8 +85,8 @@ Use uma turma de teste, pois iniciar novas sessões influencia a frequência.
 2. Mantenha as duas abas abertas durante a troca do QR. Depois da renovação, ambas devem convergir para o mesmo token; o instante da atualização visual depende das consultas de cada aba.
 3. Com alunos diferentes matriculados, leia o QR e confirme a localização em horários próximos. Confira um registro por aluno e os respectivos resultados.
 4. Encerre a chamada em uma aba. A outra deve reconhecer o encerramento na próxima consulta, retirar o QR e manter os resultados finais.
-5. Repita o envio de um aluno enquanto a sessão estiver aberta e o comprovante válido: o resultado original deve ser mantido, sem duplicação. Depois do encerramento, novos envios são rejeitados.
+5. Repita o envio de um aluno enquanto a sessão estiver aberta e o comprovante válido: a presença confirmada deve ser mantida, sem duplicação. Uma tentativa fora do raio deve permitir correção. Depois do encerramento, novos envios são rejeitados.
 6. Encerre próximo ao envio de um aluno. Se o registro obtiver o bloqueio primeiro e passar nas validações, ele será salvo antes do encerramento; se o encerramento vencer, não haverá novo registro.
 7. Troque rapidamente matéria, turma e aula durante carregamentos. Uma resposta antiga não deve substituir a seleção atual nem trazer de volta o QR anterior.
 
-Esses cenários têm cobertura automatizada local, mas o ensaio acima ainda precisa ser registrado com aparelhos reais. Para PostgreSQL e comandos de testes, consulte [Guia técnico](GUIA_TECNICO.md) e [Hospedagem](HOSPEDAGEM.md).
+Registre o resultado do ensaio acima com os aparelhos reais que serão usados na apresentação. Para a configuração local, consulte o [Guia técnico](GUIA_TECNICO.md).

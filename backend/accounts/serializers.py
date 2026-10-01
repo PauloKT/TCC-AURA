@@ -27,7 +27,6 @@ class NovaInstituicaoSerializer(serializers.ModelSerializer):
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     password2 = serializers.CharField(write_only=True, label="Confirmar senha")
-    cep = serializers.CharField(required=False, allow_blank=True, max_length=9)
     nova_instituicao = NovaInstituicaoSerializer(required=False, write_only=True)
     instituicoes = serializers.PrimaryKeyRelatedField(
         many=True,
@@ -37,20 +36,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'role', 'matricula', 'instituicao', 'instituicoes', 'nova_instituicao', 'cep', 'password', 'password2')
+        fields = ('username', 'email', 'role', 'matricula', 'instituicao', 'instituicoes', 'nova_instituicao', 'password', 'password2')
         extra_kwargs = {
             'email': {'required': True},
         }
-
-    def validate_email(self, value):
-        value_lower = value.lower()
-        allowed_domains = ['@hotmail.com', '@gmail.com', '@outlook.com',
-                          '@hotmail.com.br', '@gmail.com.br', '@outlook.com.br']
-        if not any(value_lower.endswith(domain) for domain in allowed_domains):
-            raise serializers.ValidationError(
-                "Email deve ser de um dos domínios permitidos: hotmail, gmail ou outlook"
-            )
-        return value
 
     def validate_password(self, value):
         errors = []
@@ -94,7 +83,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         """Cria conta e campus juntos; erro no cadastro não deixa instituição órfã."""
-        # Remove password2
         validated_data.pop('password2')
         password = validated_data.pop('password')
         instituicoes = validated_data.pop('instituicoes', [])
@@ -104,11 +92,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             instituicoes = [Instituicao.objects.create(**nova_instituicao)]
         if instituicoes and not validated_data.get('instituicao'):
             validated_data['instituicao'] = instituicoes[0]
-        # Create user with the password properly hashed
         user = User.objects.create_user(password=password, **validated_data)
         if instituicoes:
             user.instituicoes.set(instituicoes)
-        user.save()
         return user
 
 
@@ -116,14 +102,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        # Add custom claims
         token['role'] = user.role
         token['username'] = user.username
         return token
 
     def validate(self, attrs):
         data = super().validate(attrs)
-        # Add extra responses
         data.update({
             'user': {
                 'id': self.user.id,

@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const button = form.querySelector('button[type="submit"]');
       button.disabled = true;
       button.textContent = 'Criando conta…';
-      const response = await fetch('/api/register/', {
+      const response = await Aura.request('/api/register/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   async function loadInstitutions() {
     try {
-      const response = await fetch('/api/instituicoes/');
+      const response = await fetch('/api/instituicoes/catalogo/');
       if (!response.ok) throw new Error('Não foi possível carregar as instituições.');
       const data = await response.json();
       institutionSelect.innerHTML = '<option value="" disabled>Selecione uma instituição</option>';
@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const option = document.createElement('option');
         option.value = institution.id;
         option.textContent = `${institution.nome} - ${institution.cidade}/${institution.estado}`;
-        option.disabled = institution.latitude === null || institution.longitude === null;
+        option.disabled = !institution.localizacao_confirmada;
         if (option.disabled) option.textContent += ' (localização pendente)';
         institutionSelect.appendChild(option);
       });

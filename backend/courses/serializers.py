@@ -12,6 +12,19 @@ class MateriaSerializer(serializers.ModelSerializer):
         read_only_fields = ['professor', 'created_at']
 
 
+class InstituicaoCatalogoSerializer(serializers.ModelSerializer):
+    """Catálogo de cadastro sem endereço detalhado nem coordenadas."""
+
+    localizacao_confirmada = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Instituicao
+        fields = ['id', 'nome', 'cidade', 'estado', 'localizacao_confirmada']
+
+    def get_localizacao_confirmada(self, obj) -> bool:
+        return obj.latitude is not None and obj.longitude is not None
+
+
 class InstituicaoSerializer(serializers.ModelSerializer):
     """Expõe instituições ativas e suas coordenadas confirmadas."""
 

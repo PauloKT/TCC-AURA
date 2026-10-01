@@ -40,7 +40,7 @@ def frequency_result(total, attended, minimum):
 
 
 def _calcular_frequencia(aluno, turma):
-    counts = SessaoChamada.objects.filter(aula__turma=turma).aggregate(
+    counts = SessaoChamada.objects.filter(aula__turma=turma, ativa=False).aggregate(
         total=Count('id', distinct=True),
         attended=Count('id', filter=Q(presencas__aluno=aluno, presencas__valida=True), distinct=True),
     )
@@ -69,10 +69,11 @@ class AlunoMinhaFrequenciaView(AlunoView):
 class AlunoTurmasView(AlunoView):
     def get(self, request):
         turmas = Turma.objects.filter(alunos__aluno=request.user).select_related('materia', 'materia__professor').annotate(
-            total_sessoes=Count('aulas__sessoes', distinct=True),
+            total_sessoes=Count('aulas__sessoes', filter=Q(aulas__sessoes__ativa=False), distinct=True),
             presencas_validas=Count(
                 'aulas__sessoes__presencas',
-                filter=Q(aulas__sessoes__presencas__aluno=request.user,
+                filter=Q(aulas__sessoes__ativa=False,
+                         aulas__sessoes__presencas__aluno=request.user,
                          aulas__sessoes__presencas__valida=True),
                 distinct=True,
             ),

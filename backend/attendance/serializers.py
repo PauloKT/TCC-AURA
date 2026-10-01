@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.core import signing
 from courses.models import TurmaAluno
 from .models import SessaoChamada, Presenca
-from .geolocation import validate_coordinates
+from .geolocation import is_within_radius, validate_coordinates
 from .transactions import chamada_atomic, bloquear_sessao
 
 
@@ -49,15 +49,9 @@ class PresencaSerializer(serializers.ModelSerializer):
 
 
 class PresencaCreateSerializer(serializers.Serializer):
-    """
-        Valida o registro de presença por QR Code e geolocalização:
-            - sessao_id e token batem
-            - sessão está ativa e não expirada
-            - token (URL) corresponde ao token atual da sessão
-            - localização determina presença ou falta ao salvar
-    """
+    """Exige matrícula, QR válido e GPS no raio antes de registrar presença."""
     sessao_id = serializers.IntegerField()
-    token = serializers.CharField(required=False)
+    token = serializers.CharField(required=False, max_length=100)
     comprovante = serializers.CharField(required=False, max_length=1000)
     latitude = serializers.FloatField()
     longitude = serializers.FloatField()
@@ -73,7 +67,6 @@ class PresencaCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError({'sessao_id': 'Sessão não encontrada.'})
 
         self.validate_session(sessao, attrs)
-        attrs['sessao'] = sessao
         return attrs
 
     def validate_session(self, sessao, attrs, *, lock_enrollment=False):
@@ -102,14 +95,22 @@ class PresencaCreateSerializer(serializers.Serializer):
         if sessao.professor_latitude is None or sessao.professor_longitude is None:
             raise serializers.ValidationError({'detail': 'A sessão não possui localização institucional válida.'})
 
+        if not is_within_radius(
+            sessao.professor_latitude, sessao.professor_longitude,
+            attrs['latitude'], attrs['longitude'], sessao.professor_radius_meters,
+        ):
+            raise serializers.ValidationError({
+                'detail': 'Você está fora do raio permitido. Confira sua localização e tente novamente.',
+            }, code='fora_do_raio')
+
     def create(self, validated_data):
-        """Serializa registro e encerramento; mantém o primeiro resultado salvo."""
+        """Só confirma tentativas válidas, preservando presenças já confirmadas."""
         aluno = self.context['request'].user
         with chamada_atomic():
             sessao = bloquear_sessao(validated_data['sessao_id'])
             # Revalidar após adquirir o bloqueio inclui expiração durante a espera.
             self.validate_session(sessao, validated_data, lock_enrollment=True)
-            presenca, _ = Presenca.objects.get_or_create(
+            presenca, self.created = Presenca.objects.get_or_create(
                 sessao=sessao,
                 aluno=aluno,
                 defaults={
@@ -117,4 +118,13 @@ class PresencaCreateSerializer(serializers.Serializer):
                     'longitude': validated_data['longitude'],
                 },
             )
+            if not self.created and not presenca.valida:
+                # Registros inválidos de versões anteriores não bloqueiam a correção.
+                presenca.latitude = validated_data['latitude']
+                presenca.longitude = validated_data['longitude']
+                presenca.registrada_em = timezone.now()
+                presenca.save(update_fields=[
+                    'latitude', 'longitude', 'registrada_em',
+                    'localizacao_capturada_em', 'valida',
+                ])
         return presenca

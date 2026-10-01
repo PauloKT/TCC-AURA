@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
       const button = form.querySelector('button[type="submit"]');
       if (button) { button.disabled = true; button.textContent = 'Entrando…'; }
-      const response = await fetch('/api/login/', {
+      const data = await Aura.json('/api/auth/login/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -29,15 +29,6 @@ document.addEventListener('DOMContentLoaded', function() {
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Credenciais inválidas');
-      }
-
-      const data = await response.json();
-      const { access, refresh } = data;
-      localStorage.setItem('access_token', access);
-      localStorage.setItem('refresh_token', refresh);
       const requested = new URLSearchParams(window.location.search).get('next');
       if (requested) {
         const destination = new URL(requested, window.location.origin);
@@ -48,18 +39,7 @@ document.addEventListener('DOMContentLoaded', function() {
           return;
         }
       }
-      try {
-        const base64Url = access.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const payload = JSON.parse(atob(base64));
-        if (payload.role === 'professor') {
-          window.location.href = 'professor.html';
-        } else {
-          window.location.href = 'aluno.html';
-        }
-      } catch (e) {
-        window.location.href = 'aluno.html';
-      }
+      window.location.href = data.user.role === 'professor' ? 'professor.html' : 'aluno.html';
 
     } catch (error) {
       errorDiv.textContent = error.message || 'Erro ao fazer login';

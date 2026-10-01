@@ -56,12 +56,13 @@ window.UI = (() => {
     document.addEventListener('click', event => {
       if (event.target.closest('#navigation-menu a')) setMenu(false, true);
       else if (!event.target.closest('#navigation-menu, #menu-toggle')) setMenu(false);
-      const opener = event.target.closest('[data-dialog]');
-      if (opener) document.getElementById(opener.dataset.dialog)?.showModal();
       if (event.target.closest('[data-close]')) event.target.closest('dialog')?.close();
     });
-    document.getElementById('logout-btn')?.addEventListener('click', () => {
-      localStorage.removeItem('access_token'); localStorage.removeItem('refresh_token'); location.href = '/login.html';
+    document.getElementById('logout-btn')?.addEventListener('click', async () => {
+      try {
+        await Aura.json('/api/auth/logout/', { method: 'POST' });
+        location.href = '/login.html';
+      } catch (error) { notify(error.message, 'error'); }
     });
     const today = document.getElementById('today-label');
     if (today) today.textContent = new Date().toLocaleDateString('pt-BR', { day:'numeric', month:'long', year:'numeric' });
@@ -79,5 +80,5 @@ window.UI = (() => {
       if (details) details.innerHTML = '<dt>Não foi possível carregar</dt><dd>Confira a conexão e atualize esta página.</dd>';
     }
   });
-  return { escape, notify, date, percent, badge, empty, route };
+  return { escape, notify, date, percent, badge, empty };
 })();

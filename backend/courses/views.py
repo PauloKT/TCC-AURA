@@ -12,8 +12,8 @@ from .serializers import (
     AulaSerializer,
     TurmaAlunoSerializer,
     InstituicaoSerializer,
+    InstituicaoCatalogoSerializer,
 )
-from django.shortcuts import get_object_or_404
 
 
 class InstituicaoViewSet(viewsets.ReadOnlyModelViewSet):
@@ -21,7 +21,12 @@ class InstituicaoViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = Instituicao.objects.filter(ativa=True)
     serializer_class = InstituicaoSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny],
+            serializer_class=InstituicaoCatalogoSerializer)
+    def catalogo(self, request):
+        return Response(self.get_serializer(self.get_queryset(), many=True).data)
 
     @action(
         detail=True,

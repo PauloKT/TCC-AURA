@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const el = id => document.getElementById(id);
   const materia = el('materia-select'), turma = el('turma-select'), aula = el('aula-select');
   let groups = [], lessons = [];
-  let sessionId = null, resultsId = null, countdown = null, resultsTimer = null;
+  let sessionId = null, resultsId = null, countdown = null, resultsTimer = null, qrRetryTimer = null;
   let generation = 0, renderingResults = '', resultVersion = 0;
   let starting = false, ending = null, qrRequest = null;
   const notify = (message, kind) => window.UI ? UI.notify(message, kind) : alert(message);
@@ -18,10 +18,10 @@ document.addEventListener('DOMContentLoaded', function() {
     options(materia, rows, rows.length ? 'Selecione uma matéria' : 'Nenhuma matéria vinculada a este professor', row => `${row.nome} (${row.codigo})`, materia.value);
   }
   function resetCall() {
-    // Invalidate every pending request, including requests for the same session
-    // selected again after visiting another lesson.
+    // Descarta requisições pendentes, inclusive da mesma sessão retomada
+    // depois de selecionar outra aula.
     generation++; resultVersion++; starting = false; ending = null; qrRequest = null;
-    clearInterval(countdown); clearTimeout(resultsTimer); sessionId = null; resultsId = null; renderingResults = '';
+    clearInterval(countdown); clearTimeout(resultsTimer); clearTimeout(qrRetryTimer); sessionId = null; resultsId = null; renderingResults = '';
     el('qr-code-container').style.display = 'none'; el('qr-code-img').removeAttribute('src');
     el('attendance-results').hidden = true; el('attendance-list').replaceChildren();
     el('start-session-btn').disabled = false; el('end-session-btn').hidden = true; el('refresh-results-btn').hidden = true;
@@ -63,16 +63,20 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   materia.addEventListener('change', subjectChanged); turma.addEventListener('change', groupChanged); aula.addEventListener('change', lessonChanged);
 
-  function showQR(data) {
-    const link = `${window.location.origin}/confirmar-presenca.html?sessaoId=${sessionId}&token=${encodeURIComponent(data.token_atual)}`;
-    el('qr-code-img').src = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(link)}&size=480x480`;
+  function showQR(data, elapsed) {
+    el('qr-code-img').src = data.qr_image;
     el('qr-code-container').style.display = 'block';
     clearInterval(countdown);
-    const expires = new Date(data.token_expira_em).getTime();
+    // Usa o relógio do servidor e desconta a requisição inteira por segurança.
+    const remaining = Math.max(0, new Date(data.token_expira_em) - new Date(data.servidor_agora) - elapsed);
+    const expires = performance.now() + remaining;
     const tick = () => {
-      const seconds = Math.max(0, Math.ceil((expires - Date.now()) / 1000));
+      const seconds = Math.max(0, Math.ceil((expires - performance.now()) / 1000));
       el('countdown').textContent = `${String(Math.floor(seconds / 60)).padStart(2,'0')}:${String(seconds % 60).padStart(2,'0')}`;
-      if (seconds === 0) { clearInterval(countdown); refreshQR(); }
+      if (seconds === 0) {
+        clearInterval(countdown); el('qr-code-img').removeAttribute('src');
+        qrRetryTimer = setTimeout(refreshQR, 250);
+      }
     };
     countdown = setInterval(tick, 1000); tick();
   }
@@ -81,12 +85,25 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!requested || ending || qrRequest) return;
     const request = { id: requested, generation }; qrRequest = request;
     const current = () => request.generation === generation && requested === sessionId && !ending;
-    clearInterval(countdown);
+    clearInterval(countdown); clearTimeout(qrRetryTimer);
     el('qr-code-img').removeAttribute('src');
+    el('countdown').textContent = 'Atualizando…';
+    const started = performance.now();
     try {
-      const data = await Aura.json(`/api/sessoes/${requested}/token/`);
-      if (current()) { qrRequest = null; showQR(data); }
-    } catch(error) { if (current()) { el('countdown').textContent = 'Atualização indisponível'; notify(error.message,'error'); } }
+      const data = await Aura.json(`/api/sessoes/${requested}/token/?origin=${encodeURIComponent(window.location.origin)}`);
+      if (current()) {
+        if (!data.qr_image?.startsWith('data:image/svg+xml;base64,') ||
+            !Number.isFinite(Date.parse(data.token_expira_em)) || !Number.isFinite(Date.parse(data.servidor_agora))) {
+          throw new Error('Não foi possível carregar o QR Code.');
+        }
+        qrRequest = null; showQR(data, performance.now() - started);
+      }
+    } catch(error) {
+      if (current()) {
+        el('countdown').textContent = 'Tentando atualizar…'; notify(error.message,'error');
+        qrRetryTimer = setTimeout(refreshQR, 3000);
+      }
+    }
     finally { if (qrRequest === request) qrRequest = null; }
   }
   function showClosedCall(id) {
@@ -131,7 +148,8 @@ document.addEventListener('DOMContentLoaded', function() {
       el('end-session-btn').hidden = false; el('refresh-results-btn').hidden = false; el('attendance-results').hidden = false;
       el('call-state').textContent = 'Chamada aberta';
       el('location-info').textContent = `Localização institucional · Raio permitido de ${data.professor_radius_meters} m`;
-      showQR(data); loadResults(data.id);
+      el('qr-code-container').style.display = 'block';
+      refreshQR(); loadResults(data.id);
       window.dispatchEvent(new Event('aura:changed'));
     } catch(error) { if (version === generation) notify(error.message, 'error'); }
     finally { if (version === generation) { starting = false; button.disabled = Boolean(sessionId); button.textContent = 'Iniciar chamada'; } }
@@ -140,7 +158,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!sessionId || ending) return;
     const request = { id: sessionId, generation }; ending = request;
     const current = () => request.generation === generation && request.id === sessionId;
-    el('end-session-btn').disabled = true; clearInterval(countdown);
+    el('end-session-btn').disabled = true; clearInterval(countdown); clearTimeout(qrRetryTimer);
+    el('qr-code-img').removeAttribute('src');
     try {
       await Aura.json(`/api/sessoes/${request.id}/encerrar/`,{method:'POST'});
       if (!current()) return;
@@ -148,8 +167,8 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch(error) {
       if (current()) {
         notify(error.message,'error'); ending = null;
-        // Another screen may already have closed it. Read the authoritative
-        // state before resuming the QR countdown.
+        // Outra tela pode ter encerrado a chamada. Consulta o estado atual
+        // antes de retomar o contador do QR.
         await loadResults(request.id);
         if (current()) refreshQR();
       }
@@ -168,9 +187,9 @@ document.addEventListener('DOMContentLoaded', function() {
     },
     reload: loadSubjects,
   };
-  if (!localStorage.getItem('access_token') && !localStorage.getItem('refresh_token')) { Aura.login(); return; }
   loadSubjects().catch(error => notify(error.message,'error')).finally(() => {
     el('loading').style.display = 'none'; el('content').style.display = 'block';
   });
-  window.addEventListener('beforeunload', () => { generation++; resultVersion++; clearInterval(countdown); clearTimeout(resultsTimer); sessionId = null; resultsId = null; });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && sessionId) refreshQR(); });
+  window.addEventListener('beforeunload', () => { generation++; resultVersion++; clearInterval(countdown); clearTimeout(resultsTimer); clearTimeout(qrRetryTimer); sessionId = null; resultsId = null; });
 });

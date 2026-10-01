@@ -1,4 +1,4 @@
-"""Read-only presentation data. Frequency follows the existing session-based rule."""
+"""Dados dos painéis; frequência calculada apenas sobre chamadas encerradas."""
 from collections import Counter, defaultdict
 
 from django.db.models import Count
@@ -45,7 +45,7 @@ class WorkspaceView(APIView):
             'id', 'turma_id', 'titulo', 'data', 'horario_inicio', 'horario_fim'))
         sessions = list(SessaoChamada.objects.filter(aula__turma_id__in=ids).values(
             'id', 'aula_id', 'aula__turma_id', 'ativa'))
-        totals = Counter(session['aula__turma_id'] for session in sessions)
+        totals = Counter(session['aula__turma_id'] for session in sessions if not session['ativa'])
         enrollments = TurmaAluno.objects.filter(turma_id__in=ids).select_related('aluno')
         records = Presenca.objects.filter(sessao__aula__turma_id__in=ids)
         if user.role == 'aluno':
@@ -53,7 +53,7 @@ class WorkspaceView(APIView):
             records = records.filter(aluno=user)
         attended = {
             (row['sessao__aula__turma_id'], row['aluno_id']): row['total']
-            for row in records.filter(valida=True).values('sessao__aula__turma_id', 'aluno_id').annotate(total=Count('id'))
+            for row in records.filter(valida=True, sessao__ativa=False).values('sessao__aula__turma_id', 'aluno_id').annotate(total=Count('id'))
         }
         group_map = {group.pk: group for group in groups}
         reports = []

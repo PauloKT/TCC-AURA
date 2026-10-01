@@ -8,8 +8,6 @@ from .geolocation import (
     MAX_RADIUS_METERS,
     MIN_RADIUS_METERS,
     is_within_radius,
-    validate_coordinates,
-    validate_radius,
 )
 
 
@@ -21,7 +19,6 @@ class SessaoChamada(models.Model):
     ativa = models.BooleanField(default=True)
     iniciada_em = models.DateTimeField(default=timezone.now)
     encerrada_em = models.DateTimeField(null=True, blank=True)
-    # Localização usada na abertura da sessão.
     professor_latitude = models.FloatField(
         validators=[MinValueValidator(-90), MaxValueValidator(90)],
     )
@@ -67,7 +64,6 @@ class Presenca(models.Model):
     sessao = models.ForeignKey(SessaoChamada, on_delete=models.CASCADE, related_name='presencas')
     aluno = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='presencas')
     registrada_em = models.DateTimeField(auto_now_add=True)
-    # Localização do aluno no registro.
     latitude = models.FloatField(
         validators=[MinValueValidator(-90), MaxValueValidator(90)],
     )
@@ -78,7 +74,7 @@ class Presenca(models.Model):
     valida = models.BooleanField(default=False)
 
     class Meta:
-        unique_together = ('sessao', 'aluno')  # One attendance per session per student
+        unique_together = ('sessao', 'aluno')
         indexes = [
             models.Index(fields=['valida'], name='idx_presenca_valida'),
             models.Index(fields=['aluno', 'registrada_em'], name='idx_pres_aluno_reg'),
@@ -87,21 +83,13 @@ class Presenca(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        """Calcula a validade da presença antes de persistir o registro."""
-        validate_coordinates(self.latitude, self.longitude)
-        validate_coordinates(
-            self.sessao.professor_latitude,
-            self.sessao.professor_longitude,
-        )
-        validate_radius(self.sessao.professor_radius_meters)
-        gps_ok = is_within_radius(
+        self.valida = is_within_radius(
             self.sessao.professor_latitude,
             self.sessao.professor_longitude,
             self.latitude,
             self.longitude,
             self.sessao.professor_radius_meters
         )
-        self.valida = gps_ok
         self.localizacao_capturada_em = timezone.now()
         super().save(*args, **kwargs)
 

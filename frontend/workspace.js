@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   const $ = id => document.getElementById(id), e = UI.escape;
-  let data = {materias:[],turmas:[],aulas:[],frequencias:[],recentes:[],sessoes:[]};
+  let data = {materias:[],turmas:[],aulas:[],frequencias:[],recentes:[]};
   let editing = {}, currentTab = 'geral', removing = null, requestVersion = 0;
   const stats = rows => rows.map(([number,label]) => `<div class="stat"><strong>${e(number)}</strong><span>${e(label)}</span></div>`).join('');
   const action = (type,id,label,kind='secondary') => `<button class="button ${kind} small" data-${type}="${e(id)}">${e(label)}</button>`;

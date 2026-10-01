@@ -1,12 +1,8 @@
-"""Transações curtas compartilhadas pelas operações de uma chamada.
-
-PostgreSQL bloqueia a linha com select_for_update. SQLite usa BEGIN IMMEDIATE
-(settings.py), pois select_for_update não tem efeito nesse banco.
-"""
+"""Transações curtas compartilhadas pelas operações de uma chamada no SQLite."""
 from contextlib import contextmanager
 import sqlite3
 
-from django.db import OperationalError, connection, transaction
+from django.db import OperationalError, transaction
 from rest_framework.exceptions import APIException, ValidationError
 
 from .models import SessaoChamada
@@ -26,14 +22,14 @@ def chamada_atomic():
             yield
     except OperationalError as exc:
         code = getattr(exc.__cause__, 'sqlite_errorcode', None)
-        if connection.vendor == 'sqlite' and code is not None and (code & 0xff) in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED):
+        if code is not None and (code & 0xff) in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED):
             raise ChamadaOcupada() from exc
         raise
 
 
 def bloquear_sessao(sessao_id):
-    """Recarrega e bloqueia somente a sessão; chamar dentro de chamada_atomic."""
-    sessao = SessaoChamada.objects.select_for_update().filter(pk=sessao_id).first()
+    """Recarrega a sessão dentro de chamada_atomic, que reserva a escrita."""
+    sessao = SessaoChamada.objects.filter(pk=sessao_id).first()
     if sessao is None:
         raise ValidationError({'sessao_id': 'Sessão não encontrada.'})
     return sessao

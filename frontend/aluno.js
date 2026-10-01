@@ -12,10 +12,6 @@ document.addEventListener('DOMContentLoaded', function() {
   let stopped = false;
   let previousCalls = '';
 
-  if (!localStorage.getItem('access_token') && !localStorage.getItem('refresh_token')) {
-    Aura.login();
-    return;
-  }
   inviteInput.value = new URLSearchParams(window.location.search).get('convite') || '';
 
   async function loadGroups() {

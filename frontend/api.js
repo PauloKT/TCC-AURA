@@ -1,39 +1,35 @@
 window.Aura = (() => {
-  let refreshing = null;
+  // Limpa credenciais legadas; a sessão atual usa cookie HttpOnly do Django.
+  try {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+  } catch { /* O navegador pode bloquear o armazenamento local. */ }
 
   function login() {
     const next = window.location.pathname + window.location.search;
     window.location.href = '/login.html?next=' + encodeURIComponent(next);
   }
 
-  async function refresh() {
-    const token = localStorage.getItem('refresh_token');
-    if (!token) return false;
-    const response = await fetch('/api/token/refresh/', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh: token })
-    });
-    if (!response.ok) return false;
-    const data = await response.json();
-    localStorage.setItem('access_token', data.access);
-    return true;
+  function csrfToken() {
+    const cookie = document.cookie.split(';').map(value => value.trim()).find(value => value.startsWith('csrftoken='));
+    return cookie ? decodeURIComponent(cookie.slice('csrftoken='.length))
+      : document.querySelector('meta[name="csrf-token"]')?.content;
   }
 
   async function request(url, options = {}) {
-    const send = () => fetch(url, {
+    const destination = new URL(url, window.location.origin);
+    if (destination.origin !== window.location.origin) throw new Error('A API deve usar o mesmo endereço do sistema.');
+    const headers = { ...options.headers };
+    if (!['GET', 'HEAD', 'OPTIONS'].includes((options.method || 'GET').toUpperCase())) {
+      headers['X-CSRFToken'] = csrfToken() || '';
+    }
+    const response = await fetch(url, {
       ...options,
-      headers: { ...options.headers, Authorization: 'Bearer ' + localStorage.getItem('access_token') }
+      credentials: 'same-origin', headers,
     });
-    let response = await send();
     if (response.status === 401) {
-      if (!refreshing) refreshing = refresh().finally(() => { refreshing = null; });
-      if (await refreshing) response = await send();
-      if (response.status === 401) {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        login();
-        throw new Error('Faça login para continuar.');
-      }
+      login();
+      throw new Error('Sua sessão expirou. Faça login para continuar.');
     }
     return response;
   }

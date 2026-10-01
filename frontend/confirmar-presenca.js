@@ -10,10 +10,6 @@ document.addEventListener('DOMContentLoaded', async function() {
   let busy = false;
   let done = false;
 
-  if (!localStorage.getItem('access_token') && !localStorage.getItem('refresh_token')) {
-    Aura.login();
-    return;
-  }
 
   function position() {
     return new Promise((resolve, reject) => {
@@ -55,16 +51,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         body: JSON.stringify({ sessao_id: Number(sessionId), comprovante: receipt,
           latitude: location.coords.latitude, longitude: location.coords.longitude })
       });
-      if (!data.presenca) throw new Error('Não foi possível registrar. Tente novamente.');
+      if (data.presenca?.valida !== true) {
+        throw new Error(data.detail || 'Presença não confirmada. Confira sua localização e tente novamente.');
+      }
       done = true;
       status.textContent = 'Processo concluído.';
-      if (!data.presenca.valida) {
-        status.textContent = 'Falta registrada.';
-        error.textContent = data.detail || 'Falta registrada: você está fora do raio permitido.';
-        error.classList.add('show');
-        document.getElementById('back-link').hidden = false;
-        return;
-      }
       success.textContent = 'Presença confirmada com sucesso!';
       success.classList.add('show');
       document.getElementById('back-link').hidden = false;

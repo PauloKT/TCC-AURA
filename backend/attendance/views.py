@@ -8,11 +8,11 @@ from django.core import signing
 from rest_framework import serializers
 from .models import SessaoChamada, Presenca
 from .serializers import SessaoChamadaSerializer, SessaoTokenSerializer, PresencaSerializer, PresencaCreateSerializer
-from courses.models import Aula
+from courses.models import Aula, TurmaAluno
 from django.shortcuts import get_object_or_404
-from courses.models import TurmaAluno
 from .geolocation import validate_coordinates, validate_radius
 from .transactions import chamada_atomic, bloquear_sessao
+from .qr import session_qr_image
 
 class IsProfessor(IsAuthenticated):
     def has_permission(self, request, view):
@@ -52,7 +52,7 @@ class SessaoChamadaViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def ativas(self, request):
         sessoes = self.get_queryset().filter(ativa=True).exclude(
-            presencas__in=Presenca.objects.filter(aluno=request.user),
+            presencas__in=Presenca.objects.filter(aluno=request.user, valida=True),
         ).order_by('-iniciada_em')
         return Response({'chamadas': [{
             'id': sessao.id,
@@ -86,7 +86,6 @@ class SessaoChamadaViewSet(viewsets.ModelViewSet):
         }, headers={'Cache-Control': 'no-store'})
 
     def perform_create(self, serializer):
-        # Garante que a aula pertence a uma materia do professor.
         aula_id = self.request.data.get('aula')
         if not aula_id:
             raise ValidationError({'aula': 'Campo "aula" é obrigatório.'})
@@ -135,10 +134,6 @@ class SessaoChamadaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='token')
     def token(self, request, pk=None):
-        """
-        GET /api/sessoes/{id}/token/
-        Returns current token, expiration, seconds remaining, and professor location.
-        """
         sessao = self.get_object()
         with chamada_atomic():
             sessao = bloquear_sessao(sessao.pk)
@@ -147,6 +142,9 @@ class SessaoChamadaViewSet(viewsets.ModelViewSet):
             if not sessao.is_token_valid():
                 sessao.refresh_token()
             data = SessaoTokenSerializer(sessao).data
+        # Renderiza fora da transação para não prolongar o bloqueio de escrita.
+        data['qr_image'] = session_qr_image(request, sessao)
+        data['servidor_agora'] = timezone.now()
         return Response(data, headers={'Cache-Control': 'no-store'})
 
     def perform_update(self, serializer):
@@ -175,10 +173,6 @@ class SessaoChamadaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='encerrar')
     def encerrar(self, request, pk=None):
-        """
-        POST /api/sessoes/{id}/encerrar/
-        Ends the session.
-        """
         sessao = self.get_object()
         with chamada_atomic():
             sessao = bloquear_sessao(sessao.pk)
@@ -190,10 +184,6 @@ class SessaoChamadaViewSet(viewsets.ModelViewSet):
         return Response({'detail': 'Sessão encerrada com sucesso.'}, status=status.HTTP_200_OK)
 
 class PresencaCreateView(viewsets.GenericViewSet):
-    """
-    POST /api/presenca/registrar/
-    Expects: sessao_id, token, latitude, longitude
-    """
     serializer_class = PresencaCreateSerializer
     permission_classes = [IsAluno]
 
@@ -202,6 +192,6 @@ class PresencaCreateView(viewsets.GenericViewSet):
         serializer.is_valid(raise_exception=True)
         presenca = serializer.save()
         return Response({
-            'detail': 'Presença registrada com sucesso.' if presenca.valida else 'Falta registrada: você está fora do raio permitido.',
+            'detail': 'Presença confirmada com sucesso.',
             'presenca': PresencaSerializer(presenca).data
-        }, status=status.HTTP_201_CREATED)
+        }, status=status.HTTP_201_CREATED if serializer.created else status.HTTP_200_OK)
